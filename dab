@@ -379,8 +379,6 @@ specified your own cache directory in the config file)
 
 =back
 
-=back
-
 =head1 DESCRIPTION
 
 dab is a script to automate the creation of OpenVZ appliances. It is
@@ -560,7 +558,7 @@ this work.
 
 =head1 COPYRIGHT AND DISCLAIMER
 
-Copyright (C) 2007-2009 Proxmox Server Solutions GmbH
+Copyright (C) 2007-2012 Proxmox Server Solutions GmbH
 
 Copyright: dab is under GNU GPL, the GNU General Public License.
 

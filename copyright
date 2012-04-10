@@ -1,5 +1,5 @@
 
-   Copyright (C) 2007 Proxmox Server Solutions GmbH
+   Copyright (C) 2007-2012 Proxmox Server Solutions GmbH
 
    Copyright: dab is under GNU GPL, the GNU General Public License.
 
@@ -18,4 +18,4 @@
    MA 02110-1301, USA.
 
 The complete text of the GNU General
-Public License can be found in `/usr/share/common-licenses/GPL'.
+Public License can be found in '/usr/share/common-licenses/GPL-2'.
