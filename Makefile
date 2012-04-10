@@ -1,3 +1,5 @@
+RELEASE=2.0
+
 VERSION=1.2
 PACKAGE=dab
 PKGREL=1
@@ -22,6 +24,10 @@ MAN1DIR=${MANDIR}/man1/
 PERLDIR=${PREFIX}/share/perl5/
 
 all: ${DEB}
+
+.PHONY: dinstall
+dinstall: deb
+	dpkg -i ${DEB}
 
 .PHONY: install
 install: dab dab.1 DAB.pm devices.tar.gz ${SCRIPTS}
@@ -62,4 +68,18 @@ dab.1: dab
 .PHONY: clean
 clean:
 	rm -f ${DEB} dab.1 dab.pdf *~ 
+
+.PHONY: distclean
+distclean: clean
+
+.PHONY: upload
+upload: ${DEB}
+	umount /pve/${RELEASE}; mount /pve/${RELEASE} -o rw 
+	mkdir -p /pve/${RELEASE}/extra
+	rm -f /pve/${RELEASE}/extra/${PACKAGE}_*.deb
+	rm -f /pve/${RELEASE}/extra/Packages*
+	cp ${DEB} /pve/${RELEASE}/extra
+	cd /pve/${RELEASE}/extra; dpkg-scanpackages . /dev/null > Packages; gzip -9c Packages > Packages.gz
+	umount /pve/${RELEASE}; mount /pve/${RELEASE} -o ro
+
 
