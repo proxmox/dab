@@ -1,0 +1,35 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          ssh_gen_host_keys
+# Required-Start:    $local_fs
+# Required-Stop:
+# X-Start-Before:    sshd
+# Default-Start:     2
+# Default-Stop:
+# Short-Description: Regenerate SSH keys
+# Description:       Regenerate container SSH keys for uniqueness.
+### END INIT INFO
+
+set -e
+
+HNAME=`head -n 1 /etc/hostname|awk '{ print $1; }'`
+
+if [ "X${HNAME}" = "Xlocalhost" ] ; then
+    exit 0;
+fi
+
+echo "generating ssh host keys"
+
+rm -f /etc/ssh/ssh_host_rsa_key
+ssh-keygen -q -f /etc/ssh/ssh_host_rsa_key -t rsa -N ''
+
+rm -f /etc/ssh/ssh_host_dsa_key
+ssh-keygen -q -f /etc/ssh/ssh_host_dsa_key -t dsa -N ''
+
+if [ -x /sbin/insserv ] ; then
+    /sbin/insserv -r ssh_gen_host_keys
+    rm -f /etc/init.d/ssh_gen_host_keys
+else
+    rm -f /etc/init.d/ssh_gen_host_keys
+    update-rc.d -f ssh_gen_host_keys remove
+fi

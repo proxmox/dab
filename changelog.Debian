@@ -1,0 +1,114 @@
+dab (1.1-15) unstable; urgency=low
+
+  * fix typo in scripts/mysql_randompw
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 15 Aug 2011 05:56:52 +0200
+
+dab (1.1-14) unstable; urgency=low
+
+  * include SUITE-updates for squeeze
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 09 May 2011 10:57:08 +0200
+
+dab (1.1-13) unstable; urgency=low
+
+  * use insserv instead of update-rc.d (for newer versions)
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 06 May 2011 06:59:25 +0200
+
+dab (1.1-12) unstable; urgency=low
+
+  * use UPASSWD instead of PASSWD inside shell scripts (avoid problems
+    with new 'dash')
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 03 Mar 2011 06:41:31 +0100
+
+dab (1.1-11) unstable; urgency=low
+
+  * use HNAME instead of HOSTNAME inside shell scripts (avoid problems
+    with new 'dash')
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 02 Mar 2011 07:00:47 +0100
+
+dab (1.1-10) unstable; urgency=low
+
+  * use '=' instead of '==' to compare strings in shell scripts
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 16 Dec 2010 06:37:54 +0100
+
+dab (1.1-9) unstable; urgency=low
+
+  * correct update-rc.d invocation (add '.' after runlevel)
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 04 Oct 2010 09:27:36 +0200
+
+dab (1.1-8) unstable; urgency=low
+
+  * fix postgres startup script for squeeze
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 09 Sep 2010 11:19:27 +0200
+
+dab (1.1-7) unstable; urgency=low
+
+  * support dependency based startup (squeeze)
+  
+  * use postgresql 8.4 for squeeze
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 09 Sep 2010 10:37:10 +0200
+
+dab (1.1-6) unstable; urgency=low
+
+  *  use mysql-server-5.1 for squeezs
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 19 Aug 2010 08:32:57 +0200
+
+dab (1.1-5) unstable; urgency=low
+
+  * bug fix: only print a warning for packages installed directly with
+    'dpkg' (when there is no information in 'available' list)
+
+  * only mount /proc/ if not already mounted (avoid problems with vzctl
+    3.0.24)
+  
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 09 Aug 2010 10:18:28 +0200
+
+dab (1.1-4) unstable; urgency=low
+
+  * add support for debian squeeze (debian 6.0)
+  
+  * ve_exec - query return status
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 12 Jan 2010 12:22:33 +0100
+
+dab (1.1-3) unstable; urgency=low
+
+  * support intrepid and jaunty (patch from Sebastiaan Blommers) 
+
+  * apache NO_START is only used by etch
+  
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 19 May 2009 10:30:54 +0200
+
+dab (1.1-2) unstable; urgency=low
+
+  * DAB.pm (finalize): remove aquota.group and aquota.user
+
+  * ignore non-existent Release[.gpg] files
+
+  * __record_provides(): correct skipself implementation
+  
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 23 Jan 2009 15:22:02 +0100
+
+dab (1.1-1) unstable; urgency=low
+
+  * first public release
+  
+  * new manual page
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 16 Jan 2009 11:42:51 +0100
+
+dab (1.0-1) unstable; urgency=low
+
+  * first package build
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 28 Nov 2008 10:46:34 +0100
+

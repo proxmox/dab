@@ -1,0 +1,10 @@
+#!/bin/sh
+
+export DEBIAN_FRONTEND="noninteractive"
+export DEBCONF_NONINTERACTIVE_SEEN="true"
+
+export HOME=/root
+export USER=root
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+exec $@

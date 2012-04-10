@@ -1,0 +1,44 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          mysql_randompw
+# Required-Start:    $local_fs mysql
+# Required-Stop:
+# X-Start-Before:
+# Default-Start:     2
+# Default-Stop:
+# Short-Description: Generate random MySQL root password
+# Description:       Generate and set a random MySQL root password
+### END INIT INFO
+
+set -e
+
+HNAME=`head -n 1 /etc/hostname|awk '{ print $1; }'`
+
+if [ "X${HNAME}" = "Xlocalhost" ] ; then
+    exit 0;
+fi
+
+echo "Generate random MySQL root password"
+
+# set HOME dir (for .my.cfg)
+export HOME=/root
+export USER=root
+
+UPASSWD=`openssl rand -base64 9`
+mysqladmin password "${UPASSWD}"
+
+cat <<EOF  > /root/.my.cnf
+[client]
+user=root
+password="${UPASSWD}"
+EOF
+
+chmod 0600 /root/.my.cnf
+
+if [ -x /sbin/insserv ] ; then
+    /sbin/insserv -r mysql_randompw
+    rm -f /etc/init.d/mysql_randompw
+else
+    rm -f /etc/init.d/mysql_randompw
+    update-rc.d -f mysql_randompw remove
+fi

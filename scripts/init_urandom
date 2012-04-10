@@ -1,0 +1,40 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          urandom
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
+# Default-Start:     S
+# Default-Stop:      0 6
+# Short-Description: Save and restore random seed between restarts.
+# Description        This script saves the random seed between restarts.
+#                    It is called from the boot, halt and reboot scripts.
+### END INIT INFO
+
+[ -c /dev/urandom ] || exit 0
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+. /lib/init/vars.sh
+
+. /lib/lsb/init-functions
+
+# Modified version for OpenVZ containers
+
+case "$1" in
+  start|"")
+	# nothing to do inside container
+	;;
+  stop)
+	# nothing to do inside container
+	;;
+  restart|reload|force-reload)
+	echo "Error: argument '$1' not supported" >&2
+	exit 3
+	;;
+  *)
+	echo "Usage: urandom start|stop" >&2
+	exit 3
+	;;
+esac
+
+:
