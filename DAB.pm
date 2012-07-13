@@ -377,7 +377,9 @@ sub new {
 	if $arch !~ m/^(i386|amd64)$/;
 
     my $suite = $config->{suite} || die "no 'suite' specified\n";
-    if ($suite eq 'squeeze') {
+    if ($suite eq 'wheezy') {
+         $config->{ostype} = "debian-7.0";
+    } elsif ($suite eq 'squeeze') {
 	$config->{ostype} = "debian-6.0";
     } elsif ($suite eq 'lenny') { 
 	$config->{ostype} = "debian-5.0";
@@ -412,10 +414,10 @@ sub new {
     }
 
     if (!$config->{source}) {
-	if ($suite eq 'etch' || $suite eq 'lenny' || $suite eq 'squeeze') {
+	if ($suite eq 'etch' || $suite eq 'lenny' || $suite eq 'squeeze' || $suite eq 'wheezy' ) {
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE main contrib";
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE-updates main contrib"
-		if ($suite eq 'squeeze');
+		if ($suite eq 'squeeze' || $suite eq 'wheezy');
 	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
 	} elsif ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty') {
 	    my $comp = "main restricted universe multiverse";
@@ -1500,7 +1502,7 @@ sub ve_mysql_bootstrap {
 
     my $suite = $self->{config}->{suite};
  
-    if ($suite eq 'squeeze') {
+    if ($suite eq 'squeeze' || $suite eq 'wheezy' ) {
 	$cmd = "/usr/sbin/mysqld --bootstrap --user=mysql --skip-grant-tables";
 
     } else {
@@ -1537,6 +1539,9 @@ sub task_postgres {
     } elsif ($suite eq 'squeeze') {
 	@supp = ('8.4');
 	$pgversion = '8.4';
+    } elsif ($suite eq 'wheezy') {
+        @supp = ('9.1');
+        $pgversion = '9.1';
     }
 
     $pgversion = $opts->{version} if $opts->{version};
@@ -1552,7 +1557,10 @@ sub task_postgres {
  
     $self->ve_dpkg ('install', @$required);
 
-    my $iscript = $suite eq 'squeeze' ? 'postgresql' : "postgresql-$pgversion";
+    my $iscript = "postgresql-$pgversion";
+    if ($suite eq 'squeeze' || $suite eq 'wheezy') {
+      $iscript = 'postgresql';
+    }
 
     $self->ve_command ("/etc/init.d/$iscript start") if $opts->{start};
 }
@@ -1565,7 +1573,12 @@ sub task_mysql {
 
     my $suite = $self->{config}->{suite};
     
-    my $ver = $suite eq 'squeeze' ? '5.1' : '5.0';
+    my $ver = '5.0';
+    if ($suite eq 'squeeze') {
+      $ver = '5.1';
+    } elsif ($suite eq 'wheezy') {
+      $ver = '5.5';
+    }
 
     my $required = $self->compute_required (['mysql-common', "mysql-server-$ver"]);
 
