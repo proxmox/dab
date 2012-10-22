@@ -1306,6 +1306,8 @@ sub bootstrap {
     $self->ve_dpkg ('install', 'dpkg');
 
     $self->run_command ("ln -sf /usr/share/zoneinfo/UTC '$rootdir/etc/localtime'");
+    
+    $self->run_command ("ln -sf bash '$rootdir/bin/sh'");
 
     $self->ve_dpkg ('install', 'libc6');
     $self->ve_dpkg ('install', 'perl-base');
@@ -1382,7 +1384,7 @@ EOD
     }
 
     if (-f "$rootdir/etc/inittab") {
-	$self->run_command ("sed -i -e '/getty/d' '$rootdir/etc/inittab'");
+	$self->run_command ("sed -i -e '/getty\\s38400\\stty[23456]/d' '$rootdir/etc/inittab'");
     }
 
     # Link /etc/mtab to /proc/mounts, so df and friends will work:
