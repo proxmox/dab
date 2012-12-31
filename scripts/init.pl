@@ -57,9 +57,17 @@ system ("hostname localhost") == 0 ||
     die "unable to set hostname\n";
 
 
+# start one child doing nothing - to avoid that we get killed
+if (fork() == 0) {
+    $0 = 'dummy child';
+    for (;;) { sleep 5; }
+    exit 0;
+}
+
 # provide simple syslog
 
-my $sock =  IO::Socket::UNIX->new (Local => "/dev/log", Listen => 5);
+my $sock =  IO::Socket::UNIX->new (Local => "/dev/log", Listen => 5) ||
+    die "can't open socket /dev/log -  $!\n";
 
 while ((my $fd = $sock->accept()) ||($! == EINTR)) {
     
@@ -76,5 +84,5 @@ while ((my $fd = $sock->accept()) ||($! == EINTR)) {
     close ($fd);
 }
 
-print "exit init\n";
+print "exit init: $!\n";
 exit (0);
