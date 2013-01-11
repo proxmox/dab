@@ -1,3 +1,9 @@
+dab (1.2-5) unstable; urgency=low
+
+  * include wheezy-updates
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 11 Jan 2013 08:46:50 +0100
+
 dab (1.2-4) unstable; urgency=low
 
   * improve init.log: start one dummy child to avoid that we get killed.

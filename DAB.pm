@@ -417,7 +417,7 @@ sub new {
 	if ($suite eq 'etch' || $suite eq 'lenny' || $suite eq 'squeeze' || $suite eq 'wheezy' ) {
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE main contrib";
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE-updates main contrib"
-		if ($suite eq 'squeeze');
+		if ($suite eq 'squeeze' || $suite eq 'wheezy');
 	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
 	} elsif ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty') {
 	    my $comp = "main restricted universe multiverse";
