@@ -7,4 +7,4 @@ export HOME=/root
 export USER=root
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 
-exec $@
+exec "$@"
