@@ -26,6 +26,9 @@ ssh-keygen -q -f /etc/ssh/ssh_host_rsa_key -t rsa -N ''
 rm -f /etc/ssh/ssh_host_dsa_key
 ssh-keygen -q -f /etc/ssh/ssh_host_dsa_key -t dsa -N ''
 
+rm -f /etc/ssh/ssh_host_ecdsa_key
+ssh-keygen -q -f /etc/ssh/ssh_host_ecdsa_key -t ecdsa -N ''
+
 if [ -x /sbin/insserv ] ; then
     /sbin/insserv -r ssh_gen_host_keys
     rm -f /etc/init.d/ssh_gen_host_keys
