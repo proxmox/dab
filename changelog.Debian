@@ -1,3 +1,9 @@
+dab (1.2-6) unstable; urgency=low
+
+  * ssh_gen_host_keys: generate ecdsa keys
+  
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 22 Jul 2013 06:32:35 +0200
+
 dab (1.2-5) unstable; urgency=low
 
   * include wheezy-updates
