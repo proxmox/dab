@@ -309,7 +309,7 @@ sub __allocate_ve {
 	close ($fd);
     }
 
-    my $cfgdir = "/etc/vz/conf";
+    my $cfgdir = "/etc/pve/openvz";
 
     if ($cid) {
 	$self->{veid} = $cid;
