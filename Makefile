@@ -12,6 +12,8 @@ SCRIPTS=        				\
 	scripts/init_urandom			\
 	scripts/ssh_gen_host_keys		
 
+GITVERSION:=$(shell cat .git/refs/heads/master)
+
 DEB=${PACKAGE}_${VERSION}-${PKGREL}_all.deb
 
 DESTDIR=
@@ -50,6 +52,7 @@ deb ${DEB}: dab dab.1 DAB.pm control changelog.Debian
 	sed -e s/@@VERSION@@/${VERSION}/ -e s/@@PKGRELEASE@@/${PKGREL}/ <control >debian/DEBIAN/control
 	install -D -m 0644 copyright debian/${DOCDIR}/copyright
 	install -m 0644 changelog.Debian debian/${DOCDIR}
+	echo "git clone git://git.proxmox.com/git/dab.git\\ngit checkout ${GITVERSION}" >  debian/${DOCDIR}/SOURCE
 	gzip -9 debian/${DOCDIR}/changelog.Debian
 	dpkg-deb --build debian	
 	mv debian.deb ${DEB}
