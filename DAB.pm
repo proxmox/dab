@@ -377,7 +377,9 @@ sub new {
 	if $arch !~ m/^(i386|amd64)$/;
 
     my $suite = $config->{suite} || die "no 'suite' specified\n";
-    if ($suite eq 'wheezy') {
+    if ($suite eq 'jessie') {
+         $config->{ostype} = "debian-8.0";
+    } elsif ($suite eq 'wheezy') {
          $config->{ostype} = "debian-7.0";
     } elsif ($suite eq 'squeeze') {
 	$config->{ostype} = "debian-6.0";
@@ -414,10 +416,11 @@ sub new {
     }
 
     if (!$config->{source}) {
-	if ($suite eq 'etch' || $suite eq 'lenny' || $suite eq 'squeeze' || $suite eq 'wheezy' ) {
+	if ($suite eq 'etch' || $suite eq 'lenny' || $suite eq 'squeeze' || 
+	    $suite eq 'wheezy' || $suite eq 'jessie' ) {
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE main contrib";
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE-updates main contrib"
-		if ($suite eq 'squeeze' || $suite eq 'wheezy');
+		if ($suite eq 'squeeze' || $suite eq 'wheezy' || $suite eq 'jessie');
 	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
 	} elsif ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty') {
 	    my $comp = "main restricted universe multiverse";
@@ -487,10 +490,15 @@ sub new {
 	push @$excl, qw(kbd);
 	push @$excl, qw(apparmor apparmor-utils ntfs-3g
 			friendly-recovery);
-    } elsif($suite eq 'intrepid' || $suite eq 'jaunty') {
+    } elsif ($suite eq 'intrepid' || $suite eq 'jaunty') {
 	push @$excl, qw(apparmor apparmor-utils libapparmor1 libapparmor-perl 
 			libntfs-3g28 ntfs-3g friendly-recovery);
-    } else {
+    } elsif ($suite eq 'jessie') {
+	push @$incl, 'sysvinit-core'; # avoid systemd and udev
+	push @$incl, 'libperl4-corelibs-perl'; # to make lsof happy
+	push @$excl, qw(systemd systemd-sysv udev module-init-tools pciutils hdparm 
+			memtest86+ parted);
+     } else {
 	push @$excl, qw(udev module-init-tools pciutils hdparm 
 			memtest86+ parted);
     }
@@ -1069,6 +1077,7 @@ sub __closure_single {
 
     $pname =~ s/^\s+//;
     $pname =~ s/\s+$//;
+    $pname =~ s/:any$//;
 
     return if $closure->{$pname};
 
@@ -1248,7 +1257,12 @@ sub bootstrap {
     $self->logmsg ("create basic environment\n");
     foreach my $p (@$required) {
 	my $filename = $self->getpkgfile ($p);
-	$self->run_command ("ar -p '$self->{cachedir}/$filename' data.tar.gz | zcat | tar -C '$rootdir' -xf -");
+	my $content = $self->run_command("ar -t '$self->{cachedir}/$filename'", undef, 1);
+	if ($content =~ m/^data.tar.xz$/m) {
+	    $self->run_command ("ar -p '$self->{cachedir}/$filename' data.tar.xz | tar -C '$rootdir' -xJf -");
+	} else {
+	    $self->run_command ("ar -p '$self->{cachedir}/$filename' data.tar.gz | tar -C '$rootdir' -xzf -");
+	}
     }
 
     # fake dpkg status
@@ -1504,7 +1518,7 @@ sub ve_mysql_bootstrap {
 
     my $suite = $self->{config}->{suite};
  
-    if ($suite eq 'squeeze' || $suite eq 'wheezy' ) {
+    if ($suite eq 'squeeze' || $suite eq 'wheezy') {
 	$cmd = "/usr/sbin/mysqld --bootstrap --user=mysql --skip-grant-tables";
 
     } else {
@@ -1544,6 +1558,9 @@ sub task_postgres {
     } elsif ($suite eq 'wheezy') {
         @supp = ('9.1');
         $pgversion = '9.1';
+    } elsif ($suite eq 'jessie') {
+        @supp = ('9.4');
+        $pgversion = '9.4';
     }
 
     $pgversion = $opts->{version} if $opts->{version};
@@ -1560,7 +1577,7 @@ sub task_postgres {
     $self->ve_dpkg ('install', @$required);
 
     my $iscript = "postgresql-$pgversion";
-    if ($suite eq 'squeeze' || $suite eq 'wheezy') {
+    if ($suite eq 'squeeze' || $suite eq 'wheezy' || $suite eq 'jessie') {
       $iscript = 'postgresql';
     }
 
@@ -1578,7 +1595,7 @@ sub task_mysql {
     my $ver = '5.0';
     if ($suite eq 'squeeze') {
       $ver = '5.1';
-    } elsif ($suite eq 'wheezy') {
+    } elsif ($suite eq 'wheezy' || $suite eq 'jessie') {
       $ver = '5.5';
     }
 
