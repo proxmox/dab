@@ -1518,7 +1518,7 @@ sub ve_mysql_bootstrap {
 
     my $suite = $self->{config}->{suite};
  
-    if ($suite eq 'squeeze' || $suite eq 'wheezy') {
+    if ($suite eq 'squeeze' || $suite eq 'wheezy' || $suite eq 'jessie') {
 	$cmd = "/usr/sbin/mysqld --bootstrap --user=mysql --skip-grant-tables";
 
     } else {
