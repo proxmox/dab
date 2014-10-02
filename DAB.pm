@@ -1517,7 +1517,12 @@ sub ve_mysql_bootstrap {
     my $cmd;
 
     my $suite = $self->{config}->{suite};
- 
+
+    if ($suite eq 'jessie') {
+	my $rootdir = $self->vz_root_dir();
+	$self->run_command ("sed -e 's/^key_buffer\\s*=/key_buffer_size =/' -i $rootdir/etc/mysql/my.cnf");
+    }
+
     if ($suite eq 'squeeze' || $suite eq 'wheezy' || $suite eq 'jessie') {
 	$cmd = "/usr/sbin/mysqld --bootstrap --user=mysql --skip-grant-tables";
 
