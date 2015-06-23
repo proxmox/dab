@@ -9,6 +9,8 @@ use IO::Select;
 use IPC::Open2;
 use IPC::Open3;
 use POSIX qw (LONG_MAX);
+use UUID;
+use Cwd;
 
 # fixme: lock container ?
 
@@ -228,73 +230,22 @@ sub writelog {
 }
 
 sub __sample_config {
-    my ($self, $mem) = @_;
-
-    my $max = LONG_MAX;
-    my $nolimit = "\"$max:$max\"";
-
-    my $defaults = {
-	128 => {},
-	256 => {},
-	512 => {},
-	1024 => {},
-	2048 => {},
-    };
-
-    die "unknown memory size" if !defined ($defaults->{$mem});
+    my ($self) = @_;
 
     my $data = '';
+    my $arch = $self->{config}->{architecture};
 
-    $data .= "# DAB default config for ${mem}MB RAM\n\n";
+    my $ostype = $self->{config}->{ostype};
 
-    $data .= "ONBOOT=\"no\"\n";
-
-    $data .= "\n# Primary parameters\n";
-    $data .= "NUMPROC=\"1024:1024\"\n";
-    $data .= "NUMTCPSOCK=$nolimit\n";
-    $data .= "NUMOTHERSOCK=$nolimit\n";
-
-    my $vmguarpages = int ($mem*1024/4);
-    $data .= "VMGUARPAGES=\"$vmguarpages:$max\"\n";
-
-    $data .= "\n# Secondary parameters\n";
-
-    $data .= "KMEMSIZE=$nolimit\n";
-
-    my $privmax = int ($vmguarpages*1.1);
-    $privmax = $vmguarpages + 12500 if ($privmax-$vmguarpages) > 12500;
-    $data .= "OOMGUARPAGES=\"$vmguarpages:$max\"\n";
-    $data .= "PRIVVMPAGES=\"$vmguarpages:$privmax\"\n";
-
-    $data .= "TCPSNDBUF=$nolimit\n";
-    $data .= "TCPRCVBUF=$nolimit\n";
-    $data .= "OTHERSOCKBUF=$nolimit\n";
-    $data .= "DGRAMRCVBUF=$nolimit\n";
-
-    $data .= "\n# Auxiliary parameters\n";
-    $data .= "NUMFILE=$nolimit\n";
-    $data .= "NUMFLOCK=$nolimit\n";
-    $data .= "NUMPTY=\"255:255\"\n";
-    $data .= "NUMSIGINFO=\"1024:1024\"\n";
-    $data .= "DCACHESIZE=$nolimit\n";
-    $data .= "LOCKEDPAGES=$nolimit\n";
-    $data .= "SHMPAGES=$nolimit\n";
-    $data .= "NUMIPTENT=$nolimit\n";
-    $data .= "PHYSPAGES=\"0:$max\"\n";
-
-    $data .= "\n# Disk quota parameters\n";
-    $data .= "DISK_QUOTA=\"no\"\n";
-    $data .= "DISKSPACE=$nolimit\n";
-    $data .= "DISKINODES=$nolimit\n";
-    $data .= "QUOTATIME=\"0\"\n";
-    $data .= "QUOTAUGIDLIMIT=\"0\"\n";
-
-    $data .= "\n# CPU fair sheduler parameter\n";
-    $data .= "CPUUNITS=\"1000\"\n\n";
-
-    $data .= "\n# Template parameter\n";
-    $data .= "OSTEMPLATE=\"$self->{targetname}\"\n";
-    $data .= "HOSTNAME=\"localhost\"\n";
+    if ($ostype =~ m/^debian-/) {
+	$data .= "lxc.include = /usr/share/lxc/config/debian.common.conf\n";
+    } elsif ($ostype =~ m/^ubuntu-/) {
+	$data .= "lxc.include = /usr/share/lxc/config/ubuntu.common.conf\n";
+    } else {
+	die "unknown os type '$ostype'\n";
+    }
+    $data .= "lxc.utsname = localhost\n";
+    $data .= "lxc.rootfs = $self->{rootfs}\n";
     
     return $data;
 }
@@ -309,48 +260,39 @@ sub __allocate_ve {
 	close ($fd);
     }
 
-    my $cfgdir = "/etc/pve/openvz";
+
+    $self->{working_dir} = getcwd;
+    $self->{veconffile} = "$self->{working_dir}/config";
+    $self->{rootfs} = "$self->{working_dir}/rootfs";
 
     if ($cid) {
 	$self->{veid} = $cid;
-	$self->{veconffile} = "$cfgdir/$cid.conf";
 	return $cid;
     }
 
-    my $cdata = $self->__sample_config (1024);
-
-    my $veid;
-    my $startid = 90000;
-    for (my $id = $startid; $id < ($startid + 100); $id++) {
-
-	my $tmpfn = "$cfgdir/$id.conf.tmp$$";
-	my $target = "$cfgdir/$id.conf";
-
-	next if -f $target;
-
-	my $fh = IO::File->new ($target, O_WRONLY | O_CREAT | O_EXCL, 0644);
-
-	next if !$fh;
-
-	print $fh $cdata;
-	close ($fh);
-	$veid = $id;
-	last;
-    }
-
-    die "unable to allocate VE\n" if !$veid;
+    my $uuid;
+    my $uuid_str;
+    UUID::generate($uuid);
+    UUID::unparse($uuid, $uuid_str);
+    $self->{veid} = $uuid_str;
 
     my $fd = IO::File->new (">.veid") ||
 	die "unable to write '.veid'\n";
-    print $fd "$veid\n";
+    print $fd "$self->{veid}\n";
     close ($fd);
 
-    $self->logmsg ("allocated VE $veid\n");
+    my $cdata = $self->__sample_config();
 
-    $self->{veid} = $veid;
-    $self->{veconffile} = "$cfgdir/$veid.conf";
+    my $fh = IO::File->new ($self->{veconffile}, O_WRONLY|O_CREAT|O_EXCL) ||
+	die "unable to write lxc config file '$self->{veconffile}' - $!";
+    print $fh $cdata;
+    close ($fh);
 
-    return $veid;
+    mkdir $self->{rootfs} || die "unable to create rootfs - $!";
+
+    $self->logmsg ("allocated VE $self->{veid}\n");
+
+    return $self->{veid};
 }
 
 sub new {
@@ -555,7 +497,7 @@ sub write_config {
 
     $data .= "Name: $config->{name}\n";
     $data .= "Version: $config->{version}\n";
-    $data .= "Type: openvz\n";
+    $data .= "Type: lxc\n";
     $data .= "OS: $config->{ostype}\n";
     $data .= "Section: $config->{section}\n";
     $data .= "Maintainer: $config->{maintainer}\n";
@@ -584,7 +526,7 @@ sub finalize {
     my $instpkgs = $self->read_installed ();
     my $pkginfo = $self->pkginfo();
     my $veid = $self->{veid};
-    my $rootdir = $self->vz_root_dir();
+    my $rootdir = $self->{rootfs};
 
     my $vestat = $self->ve_status();
     die "ve not running - unable to finalize\n" if !$vestat->{running};
@@ -649,8 +591,7 @@ sub finalize {
     $self->ve_divert_remove ("/sbin/init"); 
 
     # finally stop the VE
-    $self->run_command ("vzctl stop $veid --fast");
-    $rootdir = $self->vz_priv_dir();
+    $self->run_command ("lxc-stop -n $veid --kill");
 
     unlink "$rootdir/sbin/defenv";
 
@@ -691,7 +632,7 @@ sub finalize {
 sub read_installed {
     my ($self) = @_;
 
-    my $rootdir = $self->vz_priv_dir();
+    my $rootdir = $self->{rootfs};
 
     my $pkgfilelist = "$rootdir/var/lib/dpkg/status";
     local $/ = '';
@@ -725,39 +666,32 @@ sub read_installed {
     return $pkglist;
 }
 
-sub vz_root_dir {
-    my ($self) = @_;
-
-    my $veid = $self->{veid};
-
-    return "/var/lib/vz/root/$veid";
-}
-
-sub vz_priv_dir {
-    my ($self) = @_;
-
-    my $veid = $self->{veid};
-
-    return "/var/lib/vz/private/$veid";
-}
-
 sub ve_status {
     my ($self) = @_;
 
     my $veid = $self->{veid};
-    
-    my $res = $self->run_command ("vzctl status $veid", undef, 1);
-    chomp $res;
 
-    if ($res =~ m/^CTID\s+$veid\s+(exist|deleted)\s+(mounted|unmounted)\s+(running|down)$/) {
-	return {
-	    exist => $1 eq 'exist',
-	    mounted => $2 eq 'mounted',
-	    running => $3 eq 'running',
-	};
-    } else {
-	die "unable to parse ve status";
+    my $res = { running => 0 };
+
+    $res->{exist} = 1 if -d "$self->{rootfs}/usr";
+
+    my $filename = "/proc/net/unix";
+
+    # similar test is used by lcxcontainers.c: list_active_containers
+    my $fh = IO::File->new ($filename, "r");
+    return $res if !$fh;
+
+    while (defined(my $line = <$fh>)) {
+	if ($line =~ m/^[a-f0-9]+:\s\S+\s\S+\s\S+\s\S+\s\S+\s\d+\s(\S+)$/) {
+	    my $path = $1;
+	    if ($path =~ m!^@/\S+/$veid/command$!) {
+		$res->{running} = 1;
+	    }
+	}
     }
+    close($fh);
+    
+    return $res;
 }
 
 sub ve_command {
@@ -766,10 +700,10 @@ sub ve_command {
     my $veid = $self->{veid};
 
     if (ref ($cmd) eq 'ARRAY') {
-	unshift @$cmd, 'vzctl', 'exec2',  $veid, 'defenv';
+	unshift @$cmd, 'lxc-attach', '-n', $veid, '--clear-env', '--', 'defenv';
 	$self->run_command ($cmd, $input);	
     } else {
-	$self->run_command ("vzctl exec2 $veid defenv $cmd", $input);
+	$self->run_command ("lxc-attach -n $veid --clear-env -- defenv $cmd", $input);
     }
 }
 
@@ -780,7 +714,7 @@ sub ve_exec {
     my $veid = $self->{veid};
 
     my $reader;
-    my $pid = open2($reader, "<&STDIN", 'vzctl', 'exec2', $veid, 
+    my $pid = open2($reader, "<&STDIN", 'lxc-attach', '-n', $veid,  '--',
 		    'defenv', @cmd) || die "unable to exec command";
     
     while (defined (my $line = <$reader>)) {
@@ -802,7 +736,7 @@ sub ve_divert_add {
 sub ve_divert_remove {
     my ($self, $filename) = @_;
 
-    my $rootdir = $self->vz_root_dir();
+    my $rootdir = $self->{rootfs};
 
     unlink "$rootdir/$filename";
     $self->ve_command ("dpkg-divert --remove --rename '$filename'");
@@ -811,7 +745,7 @@ sub ve_divert_remove {
 sub ve_debconfig_set {
     my ($self, $dcdata) = @_;
 
-    my $rootdir = $self->vz_root_dir();
+    my $rootdir = $self->{rootfs};
     my $cfgfile = "/tmp/debconf.txt";
     write_file ($dcdata, "$rootdir/$cfgfile");
     $self->ve_command ("debconf-set-selections $cfgfile"); 
@@ -831,7 +765,7 @@ sub ve_dpkg {
 
     my $pkginfo = $self->pkginfo();
 
-    my $rootdir = $self->vz_root_dir();
+    my $rootdir = $self->{rootfs};
     my $cachedir = $self->{cachedir};
 
     my @files;
@@ -863,45 +797,27 @@ sub ve_destroy {
 
     my $vestat = $self->ve_status();
     if ($vestat->{running}) {
-	$self->run_command ("vzctl stop $veid --fast");
-    } elsif ($vestat->{mounted}) {
-	$self->run_command ("vzctl umount $veid");
+	$self->run_command ("lxc-stop -n $veid --kill");
     }
-    if ($vestat->{exist}) {
-	$self->run_command ("vzctl destroy $veid");
-    } else {
-	unlink $self->{veconffile};
-    }
+
+    rmtree $self->{rootfs};
+    unlink $self->{veconffile};
 }
 
 sub ve_init {
     my ($self) = @_;
 
-    my $root = $self->vz_root_dir();
-    my $priv = $self->vz_priv_dir();
-
-    my $veid = $self->{veid}; # fixme
+    my $veid = $self->{veid};
 
     $self->logmsg ("initialize VE $veid\n");
 
-    while (1) {
-	my $vestat = $self->ve_status();
-	if ($vestat->{running}) {
-	    $self->run_command ("vzctl stop $veid --fast");
-	} elsif ($vestat->{mounted}) {
-	    $self->run_command ("vzctl umount $veid");
-	} else {
-	    last;
-	}
-	sleep (1);
-    }
+    my $vestat = $self->ve_status();
+    if ($vestat->{running}) {
+	$self->run_command ("lxc-stop -n $veid --kill");
+    } 
 
-    rmtree $root;
-    rmtree $priv;
-    mkpath $root;
-    mkpath $priv;
-
-    $self->run_command ("vzctl mount $veid");
+    rmtree $self->{rootfs};
+    mkpath $self->{rootfs};
 }
 
 sub __deb_version_cmp {
@@ -1168,7 +1084,7 @@ sub install_init_script {
     my ($self, $script, $runlevel, $prio) = @_;
 
     my $suite = $self->{config}->{suite};
-    my $rootdir = $self->vz_root_dir();
+    my $rootdir = $self->{rootfs};
 
     my $base = basename ($script);
     my $target = "$rootdir/etc/init.d/$base";
@@ -1251,7 +1167,7 @@ sub bootstrap {
     $self->cache_packages ($important);
     $self->cache_packages ($standard);
  
-    my $rootdir = $self->vz_priv_dir();
+    my $rootdir = $self->{rootfs};
 
     # extract required packages first
     $self->logmsg ("create basic environment\n");
@@ -1306,8 +1222,7 @@ sub bootstrap {
 
     $self->run_command ("cp '$default_env' '$rootdir/sbin/defenv'");
 
-    $self->run_command ("vzctl start $veid");    
-    $rootdir = $self->vz_root_dir(); 
+    $self->run_command ("lxc-start -n $veid -f $self->{veconffile}");
 
     $self->logmsg ("initialize ld cache\n");
     $self->ve_command ("/sbin/ldconfig");
@@ -1496,10 +1411,10 @@ sub enter {
     }
 
     if (!$vestat->{running}) {
-	$self->run_command ("vzctl start $veid");
+	$self->run_command ("lxc-start -n $veid -f $self->{veconffile}");
     }
 
-    system ("vzctl enter $veid");
+    system ("lxc-attach -n $veid --clear-env");
 }
 
 sub ve_mysql_command {
@@ -1519,7 +1434,7 @@ sub ve_mysql_bootstrap {
     my $suite = $self->{config}->{suite};
 
     if ($suite eq 'jessie') {
-	my $rootdir = $self->vz_root_dir();
+	my $rootdir = $self->{rootfs};
 	$self->run_command ("sed -e 's/^key_buffer\\s*=/key_buffer_size =/' -i $rootdir/etc/mysql/my.cnf");
     }
 
@@ -1573,7 +1488,7 @@ sub task_postgres {
     die "unsupported postgres version '$pgversion'\n" 
 	if !grep { $pgversion eq $_; } @supp;
 
-    my $rootdir = $self->vz_root_dir();
+    my $rootdir = $self->{rootfs};
 
     my $required = $self->compute_required (["postgresql-$pgversion"]);
 
@@ -1593,7 +1508,7 @@ sub task_mysql {
     my ($self, $opts) = @_;
 
     my $password = $opts->{password};
-    my $rootdir = $self->vz_root_dir();
+    my $rootdir = $self->{rootfs};
 
     my $suite = $self->{config}->{suite};
     
@@ -1638,7 +1553,7 @@ sub task_php {
     my ($self, $opts) = @_;
 
     my $memlimit = $opts->{memlimit};
-    my $rootdir = $self->vz_root_dir();
+    my $rootdir = $self->{rootfs};
 
     my $required = $self->compute_required ([qw (php5 php5-cli libapache2-mod-php5 php5-gd)]);
 

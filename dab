@@ -84,7 +84,7 @@ eval {
 
 	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
 
-	print $dab->vz_priv_dir() . "\n";
+	print $dab->{rootfs} . "\n";
 
     } elsif ($cmd eq 'packagefile') {
 
@@ -231,7 +231,7 @@ __END__
 
 =head1 NAME
                                           
-dab - Debian OpenVZ Appliance Builder
+dab - Debian LXC Appliance Builder
 
 =head1 SYNOPSIS
 
@@ -291,7 +291,7 @@ Executes command CMD inside the container.
 
 =item B<dab enter>
 
-Calls C<vzctl enter CTID> - this is for debugging only.
+Calls C<lxc-attach> - this is for debugging only.
 
 =item B<dab task mysql>
 
@@ -370,7 +370,7 @@ Also print package versions.
 
 =item B<dab clean>
 
-Remove all temporary file and destroy the used OpenVZ container.
+Remove all temporary files and destroy the container.
 
 =item B<dab dist-clean>
 
@@ -381,9 +381,9 @@ specified your own cache directory in the config file)
 
 =head1 DESCRIPTION
 
-dab is a script to automate the creation of OpenVZ appliances. It is
-basically a rewrite of debootstrap in perl, but uses OpenVZ instead of
-chroot and generates OpenVZ templates. Another difference is that it
+dab is a script to automate the creation of LXC appliances. It is
+basically a rewrite of debootstrap in perl, but uses LXC instead of
+chroot and generates LXC templates. Another difference is that it
 supports multi-stage building of templates. That way you can execute
 arbitrary scripts between to accomplish what you want.
 
@@ -397,12 +397,9 @@ this would speed up the first run).
 See http://pve.proxmox.com/wiki/Debian_Appliance_Builder for examples.
 
 This script need to be run as root, so it is not recommended to start
-it on a production machine with running container. Proxmox VE
-(http://pve.proxmox.com) is the preferred environment, because it is
-able to log the console output when a container starts. You wont be
-able to detect errors during container startup when running on
-standard OpenVZ. So many people run Proxmox VE inside a KVM or VMWare
-64bit virtual machine to build appliances.
+it on a production machine with running containers. So many people run
+Proxmox VE inside a KVM or VMWare 64bit virtual machine to build
+appliances.
 
 All generated templates includes an appliance description file. Those
 can be used to build appliance repositories.
@@ -517,7 +514,7 @@ decimal number.
 
 =item B<Type:> I<type>
 
-This is always C<openvz>.
+This is always C<lxc>.
 
 =item B<OS:> I<[debian-4.0|debian-5.0|ubuntu-8.0]>
 
