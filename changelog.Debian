@@ -1,3 +1,9 @@
+dab (2.0-1) unstable; urgency=medium
+
+  * use LXC instead of openvz
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 24 Jun 2015 09:51:47 +0200
+
 dab (1.2-7) unstable; urgency=low
 
   * add support for Debian jessie
