@@ -335,6 +335,10 @@ sub new {
 	$config->{ostype} = "ubuntu-8.10";
     } elsif ($suite eq 'jaunty') { 
 	$config->{ostype} = "ubuntu-9.04";
+    } elsif ($suite eq 'trusty') { 
+	$config->{ostype} = "ubuntu-14.04";
+    } elsif ($suite eq 'vivid') { 
+	$config->{ostype} = "ubuntu-15.04";
     } else {
 	die "unsupported debian suite '$suite'\n";
     }
@@ -364,11 +368,13 @@ sub new {
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE-updates main contrib"
 		if ($suite eq 'squeeze' || $suite eq 'wheezy' || $suite eq 'jessie');
 	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
-	} elsif ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty') {
+	} elsif ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty' || $suite eq 'vivid' || $suite eq 'trusty') {
 	    my $comp = "main restricted universe multiverse";
 	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE $comp"; 
 	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE-updates $comp"; 
 	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE-security $comp";
+	} else {
+	    die "implement me";
 	}
     }
 
@@ -428,7 +434,12 @@ sub new {
 
     # ubuntu has too many dependencies on udev, so
     # we cannot exclude it (instead we disable udevd)
-    if ($suite eq 'hardy') {
+
+    if ($suite eq 'vivid') {
+	# try plain
+    } elsif ($suite eq 'trusty') {
+	push @$excl, qw(systemd systemd-services libpam-systemd libsystemd-daemon0 memtest86+);
+    } elsif ($suite eq 'hardy') {
 	push @$excl, qw(kbd);
 	push @$excl, qw(apparmor apparmor-utils ntfs-3g
 			friendly-recovery);
@@ -1092,6 +1103,10 @@ sub install_init_script {
     $self->run_command ("install -m 0755 '$script' '$target'");
     if ($suite eq 'etch' || $suite eq 'lenny') {
 	$self->ve_command ("update-rc.d $base start $prio $runlevel .");
+    } elsif ($suite eq 'vivid') {
+	# fixme: howto do this with systemd?
+    } elsif ($suite eq 'trusty') {
+	# fixme: howto do this with upstart?
     } else {
 	$self->ve_command ("insserv $base");
     }
