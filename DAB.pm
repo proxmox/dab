@@ -1104,9 +1104,9 @@ sub install_init_script {
     if ($suite eq 'etch' || $suite eq 'lenny') {
 	$self->ve_command ("update-rc.d $base start $prio $runlevel .");
     } elsif ($suite eq 'vivid') {
-	# fixme: howto do this with systemd?
+	die "unable to install init script (system uses systemd)\n";
     } elsif ($suite eq 'trusty') {
-	# fixme: howto do this with upstart?
+	die "unable to install init script (system uses upstart)\n";
     } else {
 	$self->ve_command ("insserv $base");
     }
@@ -1337,9 +1337,6 @@ EOD
 
     # reset password
     $self->ve_command ("usermod -L root");
-
-    # regenerate sshd host keys
-    $self->install_init_script ($script_ssh_init, 2, 14);
 
     if ($mta eq 'postfix') {
 	$data = "postfix postfix/main_mailer_type select No configuration\n";
