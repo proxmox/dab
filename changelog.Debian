@@ -1,3 +1,12 @@
+dab (2.0-2) unstable; urgency=medium
+
+  * add support for ubuntu precise, trusty and vivid
+
+  * do not regenerate sshd host keys (instead, this needs to be done when we
+    create/clone a container).
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 30 Jun 2015 10:31:37 +0200
+
 dab (2.0-1) unstable; urgency=medium
 
   * use LXC instead of openvz
