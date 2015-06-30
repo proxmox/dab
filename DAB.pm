@@ -335,6 +335,8 @@ sub new {
 	$config->{ostype} = "ubuntu-8.10";
     } elsif ($suite eq 'jaunty') { 
 	$config->{ostype} = "ubuntu-9.04";
+    } elsif ($suite eq 'precise') { 
+	$config->{ostype} = "ubuntu-12.04";
     } elsif ($suite eq 'trusty') { 
 	$config->{ostype} = "ubuntu-14.04";
     } elsif ($suite eq 'vivid') { 
@@ -368,7 +370,7 @@ sub new {
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE-updates main contrib"
 		if ($suite eq 'squeeze' || $suite eq 'wheezy' || $suite eq 'jessie');
 	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
-	} elsif ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty' || $suite eq 'vivid' || $suite eq 'trusty') {
+	} elsif ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty' || $suite eq 'vivid' || $suite eq 'trusty' || $suite eq 'precise') {
 	    my $comp = "main restricted universe multiverse";
 	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE $comp"; 
 	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE-updates $comp"; 
@@ -439,6 +441,8 @@ sub new {
 	# try plain
     } elsif ($suite eq 'trusty') {
 	push @$excl, qw(systemd systemd-services libpam-systemd libsystemd-daemon0 memtest86+);
+   } elsif ($suite eq 'precise') {
+	push @$excl, qw(systemd systemd-services libpam-systemd libsystemd-daemon0 memtest86+ ubuntu-standard);
     } elsif ($suite eq 'hardy') {
 	push @$excl, qw(kbd);
 	push @$excl, qw(apparmor apparmor-utils ntfs-3g
@@ -1105,7 +1109,7 @@ sub install_init_script {
 	$self->ve_command ("update-rc.d $base start $prio $runlevel .");
     } elsif ($suite eq 'vivid') {
 	die "unable to install init script (system uses systemd)\n";
-    } elsif ($suite eq 'trusty') {
+    } elsif ($suite eq 'trusty' || $suite eq 'precise') {
 	die "unable to install init script (system uses upstart)\n";
     } else {
 	$self->ve_command ("insserv $base");
