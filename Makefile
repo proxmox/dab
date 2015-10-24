@@ -22,6 +22,8 @@ DATADIR=${PREFIX}/lib/${PACKAGE}
 SBINDIR=${PREFIX}/sbin
 MANDIR=${PREFIX}/share/man
 DOCDIR=${PREFIX}/share/doc/${PACKAGE}
+PODDIR=${DOCDIR}/pod
+
 MAN1DIR=${MANDIR}/man1/
 PERLDIR=${PREFIX}/share/perl5/
 
@@ -32,12 +34,14 @@ dinstall: deb
 	dpkg -i ${DEB}
 
 .PHONY: install
-install: dab dab.1 DAB.pm devices.tar.gz ${SCRIPTS}
+install: dab dab.1 dab.1.pod DAB.pm devices.tar.gz ${SCRIPTS}
 	install -d ${DESTDIR}${SBINDIR}
 	install -m 0755 dab ${DESTDIR}${SBINDIR}
 	install -d ${DESTDIR}${MAN1DIR}
 	install -m 0644 dab.1 ${DESTDIR}${MAN1DIR}
 	gzip -f9 ${DESTDIR}${MAN1DIR}/dab.1
+	install -d ${DESTDIR}${PODDIR}
+	install -m 0644 dab.1.pod ${DESTDIR}${PODDIR}
 	install -D -m 0644 DAB.pm ${DESTDIR}${PERLDIR}/PVE/DAB.pm
 	install -d ${DESTDIR}${DATADIR}/scripts
 	install -m 0755 ${SCRIPTS} ${DESTDIR}${DATADIR}/scripts
@@ -63,14 +67,19 @@ deb ${DEB}: dab dab.1 DAB.pm control changelog.Debian
 dab.pdf: dab.1
 	groff -man dab.1 |ps2pdf - > dab.pdf
 
-dab.1: dab
-	rm -f dab.1
-	pod2man -n $< -s 1 -r ${VERSION} <$< >$@
+dab.1.pod: dab
+	podselect $< > $@.tmp
+	mv $@.tmp $@
+
+dab.1: dab.1.pod
+	rm -f $@
+	pod2man -n $< -s 1 -r ${VERSION} <$< >$@.tmp
+	mv $@.tmp $@
 
 
 .PHONY: clean
 clean:
-	rm -f ${DEB} dab.1 dab.pdf *~ 
+	rm -f ${DEB} dab.1 dab.1.pod dab.pdf *.tmp *~ 
 
 .PHONY: distclean
 distclean: clean
