@@ -411,7 +411,7 @@ directory. The files contains key value pairs, separated by colon.
 
 =over 2
 
-=item B<Suite:> I<etch|lenny|squeeze|hardy|intrepid|jaunty>
+=item B<Suite:> I<squeeze|wheezy|jessie|trusty|vivid>
 
 The Debian or Ubuntu suite.
 
