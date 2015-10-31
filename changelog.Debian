@@ -1,3 +1,11 @@
+dab (2.0-3) unstable; urgency=medium
+
+  * add support for ubuntu wily
+
+  * ubuntu wily/vivid: install dhclient by default
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 31 Oct 2015 17:03:06 +0100
+
 dab (2.0-2) unstable; urgency=medium
 
   * add support for ubuntu precise, trusty and vivid

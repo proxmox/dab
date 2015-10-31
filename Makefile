@@ -2,7 +2,7 @@ RELEASE=4.0
 
 VERSION=2.0
 PACKAGE=dab
-PKGREL=2
+PKGREL=3
 
 
 SCRIPTS=        				\
