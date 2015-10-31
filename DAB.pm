@@ -442,6 +442,7 @@ sub new {
 
     if ($suite eq 'vivid' || $suite eq 'wily') {
 	push @$incl, 'isc-dhcp-client';
+	push @$excl, qw(libmodule-build-perl);
     } elsif ($suite eq 'trusty') {
 	push @$excl, qw(systemd systemd-services libpam-systemd libsystemd-daemon0 memtest86+);
    } elsif ($suite eq 'precise') {
