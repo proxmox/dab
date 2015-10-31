@@ -1229,8 +1229,12 @@ sub bootstrap {
     # avoid warnings about non-existent resolv.conf
     write_file ("", "$rootdir/etc/resolv.conf", 0644);
 
-    $data = "auto lo\niface lo inet loopback\n";
-    write_file ($data, "$rootdir/etc/network/interfaces", 0644);
+    if ($suite eq 'wily') {
+	# no need to configure loopback device
+    } else {
+	$data = "auto lo\niface lo inet loopback\n";
+	write_file ($data, "$rootdir/etc/network/interfaces", 0644);
+    }
 
     # setup devices
     $self->run_command ("tar xzf '$devicetar' -C '$rootdir'");
