@@ -548,6 +548,7 @@ sub finalize {
     my $instpkgs = $self->read_installed ();
     my $pkginfo = $self->pkginfo();
     my $veid = $self->{veid};
+    my $conffile = $self->{veconffile};
     my $rootdir = $self->{rootfs};
 
     my $vestat = $self->ve_status();
@@ -613,7 +614,7 @@ sub finalize {
     $self->ve_divert_remove ("/sbin/init"); 
 
     # finally stop the VE
-    $self->run_command ("lxc-stop -n $veid --kill");
+    $self->run_command ("lxc-stop -n $veid --rcfile $conffile --kill");
 
     unlink "$rootdir/sbin/defenv";
 
@@ -720,12 +721,13 @@ sub ve_command {
     my ($self, $cmd, $input) = @_;
 
     my $veid = $self->{veid};
+    my $conffile = $self->{veconffile};
 
     if (ref ($cmd) eq 'ARRAY') {
-	unshift @$cmd, 'lxc-attach', '-n', $veid, '--clear-env', '--', 'defenv';
+	unshift @$cmd, 'lxc-attach', '-n', $veid, '--rcfile', $conffile, '--clear-env', '--', 'defenv';
 	$self->run_command ($cmd, $input);	
     } else {
-	$self->run_command ("lxc-attach -n $veid --clear-env -- defenv $cmd", $input);
+	$self->run_command ("lxc-attach -n $veid --rcfile $conffile --clear-env -- defenv $cmd", $input);
     }
 }
 
@@ -734,9 +736,10 @@ sub ve_exec {
     my ($self, @cmd) = @_;
 
     my $veid = $self->{veid};
+    my $conffile = $self->{veconffile};
 
     my $reader;
-    my $pid = open2($reader, "<&STDIN", 'lxc-attach', '-n', $veid,  '--',
+    my $pid = open2($reader, "<&STDIN", 'lxc-attach', '-n', $veid,  '--rcfile', $conffile, '--',
 		    'defenv', @cmd) || die "unable to exec command";
     
     while (defined (my $line = <$reader>)) {
@@ -816,10 +819,11 @@ sub ve_destroy {
     my ($self) = @_;
 
     my $veid = $self->{veid}; # fixme
+    my $conffile = $self->{veconffile};
 
     my $vestat = $self->ve_status();
     if ($vestat->{running}) {
-	$self->run_command ("lxc-stop -n $veid --kill");
+	$self->run_command ("lxc-stop -n $veid --rcfile $conffile --kill");
     }
 
     rmtree $self->{rootfs};
@@ -830,12 +834,13 @@ sub ve_init {
     my ($self) = @_;
 
     my $veid = $self->{veid};
+    my $conffile = $self->{veconffile};
 
     $self->logmsg ("initialize VE $veid\n");
 
     my $vestat = $self->ve_status();
     if ($vestat->{running}) {
-	$self->run_command ("lxc-stop -n $veid --kill");
+	$self->run_command ("lxc-stop -n $veid --rcfile $conffile --kill");
     } 
 
     rmtree $self->{rootfs};
@@ -1429,6 +1434,7 @@ sub enter {
     my ($self) = @_;
 
     my $veid = $self->{veid};
+    my $conffile = $self->{veconffile};
 
     my $vestat = $self->ve_status();
 
@@ -1438,10 +1444,10 @@ sub enter {
     }
 
     if (!$vestat->{running}) {
-	$self->run_command ("lxc-start -n $veid -f $self->{veconffile}");
+	$self->run_command ("lxc-start -n $veid -f $conffile");
     }
 
-    system ("lxc-attach -n $veid --clear-env");
+    system ("lxc-attach -n $veid --rcfile $conffile --clear-env");
 }
 
 sub ve_mysql_command {
