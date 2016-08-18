@@ -1,3 +1,9 @@
+dab (2.0-6) unstable; urgency=medium
+
+  * update to work with newer lxc >= 2.0
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 18 Aug 2016 14:06:27 +0200
+
 dab (2.0-5) unstable; urgency=medium
 
   * depend on libuuid-perl
