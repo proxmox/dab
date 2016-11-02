@@ -345,6 +345,8 @@ sub new {
 	$config->{ostype} = "ubuntu-15.10";
     } elsif ($suite eq 'xenial') {
 	$config->{ostype} = "ubuntu-16.04";
+    } elsif ($suite eq 'yakkety') {
+	$config->{ostype} = "ubuntu-16.10";
     } else {
 	die "unsupported debian suite '$suite'\n";
     }
@@ -376,7 +378,7 @@ sub new {
 	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
 	} elsif ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty' ||
 		 $suite eq 'xenial' || $suite eq 'wily' || $suite eq 'vivid' ||
-		 $suite eq 'trusty' || $suite eq 'precise') {
+		 $suite eq 'trusty' || $suite eq 'precise' || $suite eq 'yakkety') {
 	    my $comp = "main restricted universe multiverse";
 	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE $comp"; 
 	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE-updates $comp"; 
@@ -443,7 +445,8 @@ sub new {
     # ubuntu has too many dependencies on udev, so
     # we cannot exclude it (instead we disable udevd)
 
-    if ($suite eq 'vivid' || $suite eq 'wily' || $suite eq 'xenial') {
+    if ($suite eq 'vivid' || $suite eq 'wily' || $suite eq 'xenial' ||
+	$suite eq 'yakkety') {
 	push @$incl, 'isc-dhcp-client';
 	push @$excl, qw(libmodule-build-perl);
     } elsif ($suite eq 'trusty') {
@@ -1119,7 +1122,8 @@ sub install_init_script {
     $self->run_command ("install -m 0755 '$script' '$target'");
     if ($suite eq 'etch' || $suite eq 'lenny') {
 	$self->ve_command ("update-rc.d $base start $prio $runlevel .");
-    } elsif ($suite eq 'xenial' || $suite eq 'wily' || $suite eq 'vivid') {
+    } elsif ($suite eq 'xenial' || $suite eq 'wily' || $suite eq 'vivid' ||
+	     $suite eq 'yakkety') {
 	die "unable to install init script (system uses systemd)\n";
     } elsif ($suite eq 'trusty' || $suite eq 'precise') {
 	die "unable to install init script (system uses upstart)\n";
@@ -1238,7 +1242,7 @@ sub bootstrap {
     # avoid warnings about non-existent resolv.conf
     write_file ("", "$rootdir/etc/resolv.conf", 0644);
 
-    if ($suite eq 'xenial' || $suite eq 'wily') {
+    if ($suite eq 'yakkety' || $suite eq 'xenial' || $suite eq 'wily') {
 	# no need to configure loopback device
     } else {
 	$data = "auto lo\niface lo inet loopback\n";
