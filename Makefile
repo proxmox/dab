@@ -46,7 +46,8 @@ install: dab dab.1 dab.1.pod DAB.pm devices.tar.gz ${SCRIPTS}
 	install -m 0644 devices.tar.gz ${DESTDIR}${DATADIR}
 
 .PHONY: deb
-deb ${DEB}: dab dab.1 DAB.pm control changelog.Debian
+deb: ${DEB}
+${DEB}: dab dab.1 DAB.pm control changelog.Debian
 	rm -rf debian
 	mkdir debian
 	make DESTDIR=debian install
