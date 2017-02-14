@@ -37,7 +37,7 @@ install: dab dab.1 dab.1.pod DAB.pm devices.tar.gz ${SCRIPTS}
 	install -m 0755 dab ${DESTDIR}${SBINDIR}
 	install -d ${DESTDIR}${MAN1DIR}
 	install -m 0644 dab.1 ${DESTDIR}${MAN1DIR}
-	gzip -f9 ${DESTDIR}${MAN1DIR}/dab.1
+	gzip -n -f9 ${DESTDIR}${MAN1DIR}/dab.1
 	install -d ${DESTDIR}${PODDIR}
 	install -m 0644 dab.1.pod ${DESTDIR}${PODDIR}
 	install -D -m 0644 DAB.pm ${DESTDIR}${PERLDIR}/PVE/DAB.pm
@@ -55,7 +55,7 @@ deb ${DEB}: dab dab.1 DAB.pm control changelog.Debian
 	install -D -m 0644 copyright debian/${DOCDIR}/copyright
 	install -m 0644 changelog.Debian debian/${DOCDIR}
 	echo "git clone git://git.proxmox.com/git/dab.git\\ngit checkout ${GITVERSION}" >  debian/${DOCDIR}/SOURCE
-	gzip -9 debian/${DOCDIR}/changelog.Debian
+	gzip -n -9 debian/${DOCDIR}/changelog.Debian
 	dpkg-deb --build debian	
 	mv debian.deb ${DEB}
 	rm -rf debian
