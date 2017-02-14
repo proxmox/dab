@@ -57,7 +57,7 @@ ${DEB}: dab dab.1 DAB.pm control changelog.Debian
 	install -m 0644 changelog.Debian debian/${DOCDIR}
 	echo "git clone git://git.proxmox.com/git/dab.git\\ngit checkout ${GITVERSION}" >  debian/${DOCDIR}/SOURCE
 	gzip -n -9 debian/${DOCDIR}/changelog.Debian
-	dpkg-deb --build debian	
+	fakeroot dpkg-deb --build debian	
 	mv debian.deb ${DEB}
 	rm -rf debian
 	lintian ${DEB}
