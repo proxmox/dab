@@ -1,3 +1,9 @@
+dab (3.0-2) unstable; urgency=medium
+
+  * add support for Debian stretch
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 16 Mar 2017 16:36:32 +0100
+
 dab (3.0-1) unstable; urgency=medium
 
   * bump version for Debian Stretch
