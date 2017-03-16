@@ -319,7 +319,9 @@ sub new {
 	if $arch !~ m/^(i386|amd64)$/;
 
     my $suite = $config->{suite} || die "no 'suite' specified\n";
-    if ($suite eq 'jessie') {
+    if ($suite eq 'stretch') {
+	$config->{ostype} = "debian-9.0";
+    } elsif ($suite eq 'jessie') {
          $config->{ostype} = "debian-8.0";
     } elsif ($suite eq 'wheezy') {
          $config->{ostype} = "debian-7.0";
@@ -370,11 +372,13 @@ sub new {
     }
 
     if (!$config->{source}) {
-	if ($suite eq 'etch' || $suite eq 'lenny' || $suite eq 'squeeze' || 
-	    $suite eq 'wheezy' || $suite eq 'jessie' ) {
+	if ($suite eq 'etch' || $suite eq 'lenny') {
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE main contrib";
-	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE-updates main contrib"
-		if ($suite eq 'squeeze' || $suite eq 'wheezy' || $suite eq 'jessie');
+	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
+	} elsif ($suite eq 'squeeze' || $suite eq 'wheezy' ||
+		 $suite eq 'jessie' || $suite eq 'stretch' ) {
+	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE main contrib";
+	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE-updates main contrib";
 	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
 	} elsif ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty' ||
 		 $suite eq 'xenial' || $suite eq 'wily' || $suite eq 'vivid' ||
@@ -464,6 +468,9 @@ sub new {
 	push @$incl, 'sysvinit-core'; # avoid systemd and udev
 	push @$incl, 'libperl4-corelibs-perl'; # to make lsof happy
 	push @$excl, qw(systemd systemd-sysv udev module-init-tools pciutils hdparm 
+			memtest86+ parted);
+    } elsif ($suite eq 'stretch') {
+	push @$excl, qw(module-init-tools pciutils hdparm
 			memtest86+ parted);
      } else {
 	push @$excl, qw(udev module-init-tools pciutils hdparm 
@@ -1246,6 +1253,7 @@ sub bootstrap {
 	# no need to configure loopback device
     } else {
 	$data = "auto lo\niface lo inet loopback\n";
+	mkdir "$rootdir/etc/network";
 	write_file ($data, "$rootdir/etc/network/interfaces", 0644);
     }
 
@@ -1342,7 +1350,11 @@ EOD
     }
 
     # start loopback
-    $self->ve_command ("ifconfig lo up");
+    if (-x "$rootdir/sbin/ifconfig") {
+	$self->ve_command ("ifconfig lo up");
+    } else {
+	$self->ve_command ("ip link set lo up");
+    }
 
     $self->logmsg ("configure important packages\n");
     $self->ve_command ("dpkg --force-confold --skip-same-version --configure -a");
@@ -1518,6 +1530,9 @@ sub task_postgres {
     } elsif ($suite eq 'jessie') {
         @supp = ('9.4');
         $pgversion = '9.4';
+    } elsif ($suite eq 'stretch') {
+        @supp = ('9.6');
+        $pgversion = '9.6';
     }
 
     $pgversion = $opts->{version} if $opts->{version};
@@ -1534,8 +1549,9 @@ sub task_postgres {
     $self->ve_dpkg ('install', @$required);
 
     my $iscript = "postgresql-$pgversion";
-    if ($suite eq 'squeeze' || $suite eq 'wheezy' || $suite eq 'jessie') {
-      $iscript = 'postgresql';
+    if ($suite eq 'squeeze' || $suite eq 'wheezy' || $suite eq 'jessie' ||
+	$suite eq 'stretch') {
+	$iscript = 'postgresql';
     }
 
     $self->ve_command ("/etc/init.d/$iscript start") if $opts->{start};
@@ -1554,6 +1570,8 @@ sub task_mysql {
       $ver = '5.1';
     } elsif ($suite eq 'wheezy' || $suite eq 'jessie') {
       $ver = '5.5';
+    } else {
+	die "task_mysql: unsupported suite '$suite'";
     }
 
     my $required = $self->compute_required (['mysql-common', "mysql-server-$ver"]);
