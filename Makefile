@@ -1,6 +1,6 @@
-VERSION=2.0
+VERSION=3.0
 PACKAGE=dab
-PKGREL=7
+PKGREL=1
 
 
 SCRIPTS=        				\
