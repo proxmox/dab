@@ -1,3 +1,9 @@
+dab (3.0-4) unstable; urgency=medium
+
+  * trusty: add hack to avoid util-linux preinst bug
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 26 Jun 2017 06:47:58 +0200
+
 dab (3.0-3) unstable; urgency=medium
 
   * add support for Ubuntu 17.04 (zesty)
