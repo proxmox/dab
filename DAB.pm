@@ -1284,10 +1284,19 @@ sub bootstrap {
 
     $self->ve_dpkg ('install', 'mawk');
     $self->ve_dpkg ('install', 'debconf');
-    
+
+    if ($suite eq 'trusty') {
+	# hack: util-linux preinst calls update-rc.d, which calls /sbin/insserv
+	$self->run_command ("ln -s /usr/lib/insserv/insserv '$rootdir/sbin/insserv'");
+    }
+
     # unpack required packages
     foreach my $p (@$required) {
 	$self->ve_dpkg ('unpack', $p);
+    }
+
+    if ($suite eq 'trusty') {
+	$self->run_command ("rm '$rootdir/sbin/insserv'");
     }
 
     rename ("$rootdir/sbin/init.org", "$rootdir/sbin/init");
