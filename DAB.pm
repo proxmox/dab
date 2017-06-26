@@ -1018,18 +1018,19 @@ sub closure {
     # first, record provided packages
     __record_provides ($pkginfo, $closure, $list, 1);
 
-    my $pkgs = {};
+    my $pkghash = {};
+    my $pkglist = [];
 
     # then resolve dependencies
     foreach my $pname (@$list) {
-	__closure_single ($pkginfo, $closure, $pkgs, $pname, $self->{excl});
+	__closure_single ($pkginfo, $closure, $pkghash, $pkglist, $pname, $self->{excl});
     }
 
-    return [ keys %$pkgs ];
+    return $pkglist;
 }
 
 sub __closure_single {
-    my ($pkginfo, $closure, $pkgs, $pname, $excl) = @_;
+    my ($pkginfo, $closure, $pkghash, $pkglist, $pname, $excl) = @_;
 
     $pname =~ s/^\s+//;
     $pname =~ s/\s+$//;
@@ -1046,8 +1047,11 @@ sub __closure_single {
     my $url = $info->{url};
 
     $url || die "$pname: no url for package '$pname'";
-    
-    $pkgs->{$pname} = 1;
+
+    if (!$pkghash->{$pname}) {
+	unshift @$pkglist, $pname;
+	$pkghash->{$pname} = 1;
+    }
 
     __record_provides ($pkginfo, $closure, [$pname]) if $info->{provides};
 
@@ -1083,7 +1087,7 @@ sub __closure_single {
 
       #printf (STDERR "$pname: $p --> $found\n");
 	  
-      __closure_single ($pkginfo, $closure, $pkgs, $found, $excl);
+      __closure_single ($pkginfo, $closure, $pkghash, $pkglist, $found, $excl);
   }
 }
 
@@ -1161,7 +1165,7 @@ sub bootstrap {
 	push @$important, "postfix";
     }
 
-    foreach my $p (keys %$pkginfo) {
+    foreach my $p (sort keys %$pkginfo) {
 	next if grep { $p eq $_ } @{$self->{excl}};
 	my $pri = $pkginfo->{$p}->{priority};
 	next if !$pri;
@@ -1296,7 +1300,7 @@ sub bootstrap {
 
     $self->ve_dpkg ('install', 'mawk');
     $self->ve_dpkg ('install', 'debconf');
-    
+
     # unpack required packages
     foreach my $p (@$required) {
 	$self->ve_dpkg ('unpack', $p);
