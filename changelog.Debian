@@ -1,3 +1,9 @@
+dab (3.0-5) unstable; urgency=medium
+
+  * remove previous trusty hack - fixed upstream
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 26 Jun 2017 07:43:00 +0200
+
 dab (3.0-4) unstable; urgency=medium
 
   * trusty: add hack to avoid util-linux preinst bug
