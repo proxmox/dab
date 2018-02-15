@@ -237,7 +237,7 @@ sub __sample_config {
 
     my $ostype = $self->{config}->{ostype};
 
-    if ($ostype =~ m/^debian-/) {
+    if ($ostype =~ m/^de(bi|vu)an-/) {
 	$data .= "lxc.include = /usr/share/lxc/config/debian.common.conf\n";
     } elsif ($ostype =~ m/^ubuntu-/) {
 	$data .= "lxc.include = /usr/share/lxc/config/ubuntu.common.conf\n";
@@ -331,6 +331,12 @@ sub new {
 	$config->{ostype} = "debian-5.0";
     } elsif ($suite eq 'etch') { 
 	$config->{ostype} = "debian-4.0";
+    } elsif ($suite eq 'devuan-jessie') {
+	$suite = 'jessie';
+	$config->{ostype} = "devuan-1.0";
+    } elsif ($suite eq 'devuan-ascii' || 'ascii') {
+	$suite = 'ascii';
+	$config->{ostype} = "devuan-2.0";
     } elsif ($suite eq 'hardy') { 
 	$config->{ostype} = "ubuntu-8.04";
     } elsif ($suite eq 'intrepid') { 
