@@ -1,3 +1,11 @@
+dab (3.0-9) unstable; urgency=medium
+
+  * use new config properties for sample lxc config
+
+  * correctly check for devuan ascii suite
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 05 Apr 2018 10:07:19 +0200
+
 dab (3.0-8) unstable; urgency=medium
 
   * close #1668: add support for devuan jessie and ascii
