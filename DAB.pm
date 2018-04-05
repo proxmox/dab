@@ -334,7 +334,7 @@ sub new {
     } elsif ($suite eq 'devuan-jessie') {
 	$suite = 'jessie';
 	$config->{ostype} = "devuan-1.0";
-    } elsif ($suite eq 'devuan-ascii' || 'ascii') {
+    } elsif ($suite eq 'devuan-ascii' || $suite eq 'ascii') {
 	$suite = 'ascii';
 	$config->{ostype} = "devuan-2.0";
     } elsif ($suite eq 'hardy') { 
