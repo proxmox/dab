@@ -244,8 +244,8 @@ sub __sample_config {
     } else {
 	die "unknown os type '$ostype'\n";
     }
-    $data .= "lxc.utsname = localhost\n";
-    $data .= "lxc.rootfs = $self->{rootfs}\n";
+    $data .= "lxc.uts.name = localhost\n";
+    $data .= "lxc.rootfs.path = $self->{rootfs}\n";
     
     return $data;
 }
