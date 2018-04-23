@@ -1,3 +1,9 @@
+dab (3.0-10) unstable; urgency=medium
+
+  * add support for ubuntu 18.04 (bionic beaver)
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 23 Apr 2018 11:07:36 +0200
+
 dab (3.0-9) unstable; urgency=medium
 
   * use new config properties for sample lxc config
