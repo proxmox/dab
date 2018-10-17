@@ -361,6 +361,8 @@ sub new {
 	$config->{ostype} = "ubuntu-17.10";
     } elsif ($suite eq 'bionic') {
 	$config->{ostype} = "ubuntu-18.04";
+    } elsif ($suite eq 'cosmic') {
+	$config->{ostype} = "ubuntu-18.10";
     } else {
 	die "unsupported debian suite '$suite'\n";
     }
@@ -395,7 +397,8 @@ sub new {
 	} elsif ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty' ||
 		 $suite eq 'xenial' || $suite eq 'wily' || $suite eq 'vivid' ||
 		 $suite eq 'trusty' || $suite eq 'precise' || $suite eq 'yakkety' ||
-		 $suite eq 'zesty' || $suite eq 'artful' || $suite eq 'bionic') {
+		 $suite eq 'zesty' || $suite eq 'artful' || $suite eq 'bionic' ||
+		 $suite eq 'cosmic') {
 	    my $comp = "main restricted universe multiverse";
 	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE $comp"; 
 	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE-updates $comp"; 
@@ -464,7 +467,7 @@ sub new {
 
     if ($suite eq 'vivid' || $suite eq 'wily' || $suite eq 'xenial' ||
 	$suite eq 'yakkety' || $suite eq 'zesty' || $suite eq 'artful' ||
-	$suite eq 'bionic') {
+	$suite eq 'bionic' || $suite eq 'cosmic') {
 	push @$incl, 'isc-dhcp-client';
 	push @$excl, qw(libmodule-build-perl);
     } elsif ($suite eq 'trusty') {
@@ -1149,7 +1152,7 @@ sub install_init_script {
 	$self->ve_command ("update-rc.d $base start $prio $runlevel .");
     } elsif ($suite eq 'xenial' || $suite eq 'wily' || $suite eq 'vivid' ||
 	     $suite eq 'yakkety' || $suite eq 'zesty' || $suite eq 'artful' ||
-	     $suite eq 'bionic') {
+	     $suite eq 'bionic' || $suite eq 'cosmic') {
 	die "unable to install init script (system uses systemd)\n";
     } elsif ($suite eq 'trusty' || $suite eq 'precise') {
 	die "unable to install init script (system uses upstart)\n";
@@ -1268,8 +1271,9 @@ sub bootstrap {
     # avoid warnings about non-existent resolv.conf
     write_file ("", "$rootdir/etc/resolv.conf", 0644);
 
-    if ($suite eq 'bionic' || $suite eq 'artful' || $suite eq 'zesty' ||
-	$suite eq 'yakkety' || $suite eq 'xenial' || $suite eq 'wily') {
+    if ($suite eq 'cosmic' || $suite eq 'bionic' || $suite eq 'artful' ||
+	$suite eq 'zesty' || $suite eq 'yakkety' || $suite eq 'xenial' ||
+	$suite eq 'wily') {
 	# no need to configure loopback device
     } else {
 	$data = "auto lo\niface lo inet loopback\n";
