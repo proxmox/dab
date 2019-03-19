@@ -319,7 +319,9 @@ sub new {
 	if $arch !~ m/^(i386|amd64)$/;
 
     my $suite = $config->{suite} || die "no 'suite' specified\n";
-    if ($suite eq 'stretch') {
+    if ($suite eq 'buster') {
+	$config->{ostype} = "debian-10.0";
+    } elsif ($suite eq 'stretch') {
 	$config->{ostype} = "debian-9.0";
     } elsif ($suite eq 'jessie') {
          $config->{ostype} = "debian-8.0";
@@ -389,8 +391,8 @@ sub new {
 	if ($suite eq 'etch' || $suite eq 'lenny') {
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE main contrib";
 	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
-	} elsif ($suite eq 'squeeze' || $suite eq 'wheezy' ||
-		 $suite eq 'jessie' || $suite eq 'stretch' ) {
+	} elsif ($suite eq 'squeeze' || $suite eq 'stretch' ||
+		 $suite eq 'jessie' || $suite eq 'buster' ) {
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE main contrib";
 	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE-updates main contrib";
 	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
@@ -486,7 +488,7 @@ sub new {
 	push @$incl, 'libperl4-corelibs-perl'; # to make lsof happy
 	push @$excl, qw(systemd systemd-sysv udev module-init-tools pciutils hdparm 
 			memtest86+ parted);
-    } elsif ($suite eq 'stretch') {
+    } elsif ($suite eq 'stretch' || $suite eq 'buster') {
 	push @$excl, qw(module-init-tools pciutils hdparm
 			memtest86+ parted);
      } else {
@@ -1557,6 +1559,9 @@ sub task_postgres {
     } elsif ($suite eq 'stretch') {
         @supp = ('9.6');
         $pgversion = '9.6';
+    } elsif ($suite eq 'buster') {
+        @supp = ('11');
+        $pgversion = '11';
     }
 
     $pgversion = $opts->{version} if $opts->{version};
