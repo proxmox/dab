@@ -365,6 +365,8 @@ sub new {
 	$config->{ostype} = "ubuntu-18.04";
     } elsif ($suite eq 'cosmic') {
 	$config->{ostype} = "ubuntu-18.10";
+    } elsif ($suite eq 'disco') {
+	$config->{ostype} = "ubuntu-19.04";
     } else {
 	die "unsupported debian suite '$suite'\n";
     }
@@ -400,7 +402,7 @@ sub new {
 		 $suite eq 'xenial' || $suite eq 'wily' || $suite eq 'vivid' ||
 		 $suite eq 'trusty' || $suite eq 'precise' || $suite eq 'yakkety' ||
 		 $suite eq 'zesty' || $suite eq 'artful' || $suite eq 'bionic' ||
-		 $suite eq 'cosmic') {
+		 $suite eq 'cosmic' || $suite eq 'disco') {
 	    my $comp = "main restricted universe multiverse";
 	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE $comp"; 
 	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE-updates $comp"; 
@@ -469,7 +471,7 @@ sub new {
 
     if ($suite eq 'vivid' || $suite eq 'wily' || $suite eq 'xenial' ||
 	$suite eq 'yakkety' || $suite eq 'zesty' || $suite eq 'artful' ||
-	$suite eq 'bionic' || $suite eq 'cosmic') {
+	$suite eq 'bionic' || $suite eq 'cosmic' || $suite eq 'disco') {
 	push @$incl, 'isc-dhcp-client';
 	push @$excl, qw(libmodule-build-perl);
     } elsif ($suite eq 'trusty') {
@@ -1154,7 +1156,7 @@ sub install_init_script {
 	$self->ve_command ("update-rc.d $base start $prio $runlevel .");
     } elsif ($suite eq 'xenial' || $suite eq 'wily' || $suite eq 'vivid' ||
 	     $suite eq 'yakkety' || $suite eq 'zesty' || $suite eq 'artful' ||
-	     $suite eq 'bionic' || $suite eq 'cosmic') {
+	     $suite eq 'bionic' || $suite eq 'cosmic' || $suite eq 'disco') {
 	die "unable to install init script (system uses systemd)\n";
     } elsif ($suite eq 'trusty' || $suite eq 'precise') {
 	die "unable to install init script (system uses upstart)\n";
@@ -1273,7 +1275,7 @@ sub bootstrap {
     # avoid warnings about non-existent resolv.conf
     write_file ("", "$rootdir/etc/resolv.conf", 0644);
 
-    if ($suite eq 'cosmic' || $suite eq 'bionic' || $suite eq 'artful' ||
+    if ($suite eq 'disco' || $suite eq 'cosmic' || $suite eq 'bionic' || $suite eq 'artful' ||
 	$suite eq 'zesty' || $suite eq 'yakkety' || $suite eq 'xenial' ||
 	$suite eq 'wily') {
 	# no need to configure loopback device
