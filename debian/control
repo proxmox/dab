@@ -1,0 +1,21 @@
+Source: dab
+Section: admin
+Priority: optional
+Maintainer: Proxmox Support Team <support@proxmox.com>
+Build-Depends: debhelper (>= 10~),
+               perl,
+Standards-Version: 3.9.8
+
+Package: dab
+Architecture: all
+Depends: binutils,
+         libuuid-perl,
+         lxc,
+         make,
+         perl,
+         wget,
+         ${misc:Depends},
+         ${perl:Depends},
+Description: Debian LXC Appliance Builder
+ This package contains scripts to automate the creation of LXC
+ appliances.

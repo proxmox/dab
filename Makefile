@@ -2,6 +2,7 @@ VERSION=3.0
 PACKAGE=dab
 PKGREL=11
 
+BUILDDIR ?= ${PACKAGE}-${VERSION}
 
 SCRIPTS=        				\
 	scripts/init.pl				\
@@ -10,22 +11,24 @@ SCRIPTS=        				\
 	scripts/init_urandom			\
 	scripts/ssh_gen_host_keys		
 
-GITVERSION:=$(shell cat .git/refs/heads/master)
+GITVERSION:=$(shell git rev-parse HEAD)
 
 DEB=${PACKAGE}_${VERSION}-${PKGREL}_all.deb
+DSC=${PACKAGE}_${VERSION}-${PKGREL}.dsc
 
 DESTDIR=
 PREFIX=/usr
-DATADIR=${PREFIX}/lib/${PACKAGE}
-SBINDIR=${PREFIX}/sbin
-MANDIR=${PREFIX}/share/man
-DOCDIR=${PREFIX}/share/doc/${PACKAGE}
+DATADIR=${DESTDIR}/${PREFIX}/lib/${PACKAGE}
+SBINDIR=${DESTDIR}/${PREFIX}/sbin
+MANDIR=${DESTDIR}/${PREFIX}/share/man
+DOCDIR=${DESTDIR}/${PREFIX}/share/doc/${PACKAGE}
+
 PODDIR=${DOCDIR}/pod
-
 MAN1DIR=${MANDIR}/man1/
-PERLDIR=${PREFIX}/share/perl5/
+PERLDIR=${DESTDIR}/${PREFIX}/share/perl5/
 
-all: ${DEB}
+# avoid build loops, as we have nor real folder structure here
+all:
 
 .PHONY: dinstall
 dinstall: deb
@@ -33,34 +36,34 @@ dinstall: deb
 
 .PHONY: install
 install: dab dab.1 dab.1.pod DAB.pm devices.tar.gz ${SCRIPTS}
-	install -d ${DESTDIR}${SBINDIR}
-	install -m 0755 dab ${DESTDIR}${SBINDIR}
-	install -d ${DESTDIR}${MAN1DIR}
-	install -m 0644 dab.1 ${DESTDIR}${MAN1DIR}
-	gzip -n -f9 ${DESTDIR}${MAN1DIR}/dab.1
-	install -d ${DESTDIR}${PODDIR}
-	install -m 0644 dab.1.pod ${DESTDIR}${PODDIR}
-	install -D -m 0644 DAB.pm ${DESTDIR}${PERLDIR}/PVE/DAB.pm
-	install -d ${DESTDIR}${DATADIR}/scripts
-	install -m 0755 ${SCRIPTS} ${DESTDIR}${DATADIR}/scripts
-	install -m 0644 devices.tar.gz ${DESTDIR}${DATADIR}
+	install -d ${SBINDIR}
+	install -m 0755 dab ${SBINDIR}
+	install -d ${MAN1DIR}
+	install -m 0644 dab.1 ${MAN1DIR}
+	gzip -n -f9 ${MAN1DIR}/dab.1
+	install -d ${PODDIR}
+	install -m 0644 dab.1.pod ${PODDIR}
+	install -D -m 0644 DAB.pm ${PERLDIR}/PVE/DAB.pm
+	install -d ${DATADIR}/scripts
+	install -m 0755 ${SCRIPTS} ${DATADIR}/scripts
+	install -m 0644 devices.tar.gz ${DATADIR}
+
+${BUILDDIR}:
+	rm -rf ${BUILDDIR}
+	rsync -a * ${BUILDDIR}
+	echo "git clone git://git.proxmox.com/git/dab.git\\ngit checkout ${GITVERSION}" >  ${BUILDDIR}/debian/SOURCE
 
 .PHONY: deb
 deb: ${DEB}
-${DEB}: dab dab.1 DAB.pm control changelog.Debian
-	rm -rf debian
-	mkdir debian
-	make DESTDIR=debian install
-	install -d -m 0755 debian/DEBIAN
-	sed -e s/@@VERSION@@/${VERSION}/ -e s/@@PKGRELEASE@@/${PKGREL}/ <control >debian/DEBIAN/control
-	install -D -m 0644 copyright debian/${DOCDIR}/copyright
-	install -m 0644 changelog.Debian debian/${DOCDIR}
-	echo "git clone git://git.proxmox.com/git/dab.git\\ngit checkout ${GITVERSION}" >  debian/${DOCDIR}/SOURCE
-	gzip -n -9 debian/${DOCDIR}/changelog.Debian
-	fakeroot dpkg-deb --build debian	
-	mv debian.deb ${DEB}
-	rm -rf debian
+${DEB}: ${BUILDDIR}
+	cd ${BUILDDIR}; dpkg-buildpackage -b -us -uc
 	lintian ${DEB}
+
+.PHONY: dsc
+dsc: ${DSC}
+${DSC}: ${BUILDDIR}
+	cd ${BUILDDIR}; dpkg-buildpackage -S -us -uc -d -nc
+	lintian ${DSC}
 
 
 dab.pdf: dab.1
@@ -78,7 +81,7 @@ dab.1: dab.1.pod
 
 .PHONY: clean
 clean:
-	rm -f ${DEB} dab.1 dab.1.pod dab.pdf *.tmp *~ 
+	rm -rf ${BUILDDIR} *.deb *.dsc dab_*.tar.gz dab.1 dab.1.pod dab.pdf *.tmp *.changes *.buildinfo *~
 
 .PHONY: distclean
 distclean: clean
