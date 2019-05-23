@@ -1,8 +1,8 @@
-VERSION=3.0
-PACKAGE=dab
-PKGREL=12
+include /usr/share/dpkg/pkg-info.mk
 
-BUILDDIR ?= ${PACKAGE}-${VERSION}
+PACKAGE=dab
+
+BUILDDIR ?= ${PACKAGE}-${DEB_VERSION_UPSTREAM}
 
 SCRIPTS=        				\
 	scripts/init.pl				\
@@ -13,8 +13,8 @@ SCRIPTS=        				\
 
 GITVERSION:=$(shell git rev-parse HEAD)
 
-DEB=${PACKAGE}_${VERSION}-${PKGREL}_all.deb
-DSC=${PACKAGE}_${VERSION}-${PKGREL}.dsc
+DEB=${PACKAGE}_${DEB_VERSION_UPSTREAM_REVISION}_all.deb
+DSC=${PACKAGE}_${DEB_VERSION_UPSTREAM_REVISION}.dsc
 
 DESTDIR=
 PREFIX=/usr
@@ -75,7 +75,7 @@ dab.1.pod: dab
 
 dab.1: dab.1.pod
 	rm -f $@
-	pod2man -n $< -s 1 -r ${VERSION} <$< >$@.tmp
+	pod2man -n $< -s 1 -r ${DEB_VERSION_UPSTREAM} <$< >$@.tmp
 	mv $@.tmp $@
 
 
@@ -89,5 +89,3 @@ distclean: clean
 .PHONY: upload
 upload: ${DEB}
 	tar cf - ${DEB} | ssh -X repoman@repo.proxmox.com -- upload --product pve --dist stretch
-
-
