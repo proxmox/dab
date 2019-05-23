@@ -81,7 +81,7 @@ dab.1: dab.1.pod
 
 .PHONY: clean
 clean:
-	rm -rf ${BUILDDIR} *.deb *.dsc dab_*.tar.gz dab.1 dab.1.pod dab.pdf *.tmp *.changes *.buildinfo *~
+	rm -rf ${PACKAGE}-*/ *.deb *.dsc dab_*.tar.gz dab.1 dab.1.pod dab.pdf *.tmp *.changes *.buildinfo *~
 
 .PHONY: distclean
 distclean: clean
