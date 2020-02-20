@@ -42,6 +42,8 @@ mynetworks = 127.0.0.0/8
 inet_interfaces = loopback-only
 recipient_delimiter = +
 
+compatibility_level = 2
+
 EOD
 
 # produce apt compatible filenames (/var/lib/apt/lists)
