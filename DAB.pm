@@ -57,6 +57,119 @@ sub __url_to_filename {
     return $url;
 }
 
+# defaults:
+#  origin: debian
+my $supported_suites = {
+    'buster' => {
+	ostype => "debian-10.0",
+    },
+    'stretch' => {
+	ostype => "debian-9.0",
+    },
+    'jessie' => {
+	ostype => "debian-8.0",
+    },
+    'wheezy' => {
+	ostype => "debian-7.0",
+    },
+    'squeeze' => {
+	ostype => "debian-6.0",
+    },
+    'lenny' => {
+	ostype => "debian-5.0",
+    },
+    'etch' => {
+	ostype => "debian-4.0",
+    },
+
+# DEVUAN
+    'devuan-jessie' => {
+	suite => 'jessie',
+	ostype => "devuan-1.0",
+    },
+    'devuan-ascii' => {
+	suite => 'ascii',
+	ostype => "devuan-2.0",
+    },
+    'ascii' => {
+	ostype => "devuan-2.0",
+    },
+
+# UBUNTU
+    'hardy' => {
+	ostype => "ubuntu-8.04",
+	origin => 'ubuntu',
+    },
+    'intrepid' => {
+	ostype => "ubuntu-8.10",
+	origin => 'ubuntu',
+    },
+    'jaunty' => {
+	ostype => "ubuntu-9.04",
+	origin => 'ubuntu',
+    },
+    'precise' => {
+	ostype => "ubuntu-12.04",
+	origin => 'ubuntu',
+    },
+    'trusty' => {
+	ostype => "ubuntu-14.04",
+	origin => 'ubuntu',
+    },
+    'vivid' => {
+	ostype => "ubuntu-15.04",
+	origin => 'ubuntu',
+    },
+    'wily' => {
+	ostype => "ubuntu-15.10",
+	origin => 'ubuntu',
+    },
+    'xenial' => {
+	ostype => "ubuntu-16.04",
+	origin => 'ubuntu',
+    },
+    'yakkety' => {
+	ostype => "ubuntu-16.10",
+	origin => 'ubuntu',
+    },
+    'zesty' => {
+	ostype => "ubuntu-17.04",
+	origin => 'ubuntu',
+    },
+    'artful' => {
+	ostype => "ubuntu-17.10",
+	origin => 'ubuntu',
+    },
+    'bionic' => {
+	ostype => "ubuntu-18.04",
+	origin => 'ubuntu',
+    },
+    'cosmic' => {
+	ostype => "ubuntu-18.10",
+	origin => 'ubuntu',
+    },
+    'disco' => {
+	ostype => "ubuntu-19.04",
+	origin => 'ubuntu',
+    },
+    'eoan' => {
+	ostype => "ubuntu-19.10",
+	origin => 'ubuntu',
+    },
+};
+
+sub get_suite_info {
+    my ($suite) = @_;
+
+    my $suiteinfo = $supported_suites->{$suite} || die "unsupported suite '$suite'!\n";
+
+    # set defaults
+    $suiteinfo->{origin} //= 'debian';
+    $suiteinfo->{suite} //= $suite;
+
+    return $suiteinfo;
+}
+
 sub download {
     my ($self, $url, $path) = @_;
 
@@ -321,59 +434,10 @@ sub new {
 	if $arch !~ m/^(i386|amd64)$/;
 
     my $suite = $config->{suite} || die "no 'suite' specified\n";
-    if ($suite eq 'buster') {
-	$config->{ostype} = "debian-10.0";
-    } elsif ($suite eq 'stretch') {
-	$config->{ostype} = "debian-9.0";
-    } elsif ($suite eq 'jessie') {
-         $config->{ostype} = "debian-8.0";
-    } elsif ($suite eq 'wheezy') {
-         $config->{ostype} = "debian-7.0";
-    } elsif ($suite eq 'squeeze') {
-	$config->{ostype} = "debian-6.0";
-    } elsif ($suite eq 'lenny') { 
-	$config->{ostype} = "debian-5.0";
-    } elsif ($suite eq 'etch') { 
-	$config->{ostype} = "debian-4.0";
-    } elsif ($suite eq 'devuan-jessie') {
-	$suite = 'jessie';
-	$config->{ostype} = "devuan-1.0";
-    } elsif ($suite eq 'devuan-ascii' || $suite eq 'ascii') {
-	$suite = 'ascii';
-	$config->{ostype} = "devuan-2.0";
-    } elsif ($suite eq 'hardy') { 
-	$config->{ostype} = "ubuntu-8.04";
-    } elsif ($suite eq 'intrepid') { 
-	$config->{ostype} = "ubuntu-8.10";
-    } elsif ($suite eq 'jaunty') { 
-	$config->{ostype} = "ubuntu-9.04";
-    } elsif ($suite eq 'precise') { 
-	$config->{ostype} = "ubuntu-12.04";
-    } elsif ($suite eq 'trusty') { 
-	$config->{ostype} = "ubuntu-14.04";
-    } elsif ($suite eq 'vivid') { 
-	$config->{ostype} = "ubuntu-15.04";
-    } elsif ($suite eq 'wily') {
-	$config->{ostype} = "ubuntu-15.10";
-    } elsif ($suite eq 'xenial') {
-	$config->{ostype} = "ubuntu-16.04";
-    } elsif ($suite eq 'yakkety') {
-	$config->{ostype} = "ubuntu-16.10";
-    } elsif ($suite eq 'zesty') {
-	$config->{ostype} = "ubuntu-17.04";
-    } elsif ($suite eq 'artful') {
-	$config->{ostype} = "ubuntu-17.10";
-    } elsif ($suite eq 'bionic') {
-	$config->{ostype} = "ubuntu-18.04";
-    } elsif ($suite eq 'cosmic') {
-	$config->{ostype} = "ubuntu-18.10";
-    } elsif ($suite eq 'disco') {
-	$config->{ostype} = "ubuntu-19.04";
-    } elsif ($suite eq 'eoan') {
-	$config->{ostype} = "ubuntu-19.10";
-    } else {
-	die "unsupported debian suite '$suite'\n";
-    }
+
+    my $suiteinfo = get_suite_info($suite);
+    $suite = $suiteinfo->{suite};
+    $config->{ostype} = $suiteinfo->{ostype};
 
     my $name = $config->{name} || die "no 'name' specified\n";
 
@@ -394,23 +458,26 @@ sub new {
     }
 
     if (!$config->{source}) {
-	if ($suite eq 'etch' || $suite eq 'lenny') {
-	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE main contrib";
-	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
-	} elsif ($suite eq 'squeeze' || $suite eq 'stretch' ||
-		 $suite eq 'jessie' || $suite eq 'buster' ) {
-	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE main contrib";
-	    push @{$config->{source}}, "http://ftp.debian.org/debian SUITE-updates main contrib";
-	    push @{$config->{source}}, "http://security.debian.org SUITE/updates main contrib";
-	} elsif ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty' ||
-		 $suite eq 'xenial' || $suite eq 'wily' || $suite eq 'vivid' ||
-		 $suite eq 'trusty' || $suite eq 'precise' || $suite eq 'yakkety' ||
-		 $suite eq 'zesty' || $suite eq 'artful' || $suite eq 'bionic' ||
-		 $suite eq 'cosmic' || $suite eq 'disco' || $suite eq 'eoan' ) {
+	if (lc($suiteinfo->{origin}) eq 'debian') {
+	    if ($suite eq 'etch' || $suite eq 'lenny') {
+		push @{$config->{source}}, (
+		    'http://ftp.debian.org/debian SUITE main contrib',
+		    'http://security.debian.org SUITE/updates main contrib',
+		);
+	    } else {
+		push @{$config->{source}}, (
+		    "http://ftp.debian.org/debian SUITE main contrib",
+		    "http://ftp.debian.org/debian SUITE-updates main contrib",
+		    "http://security.debian.org SUITE/updates main contrib",
+		);
+	    }
+	} elsif (lc($suiteinfo->{origin}) eq 'ubuntu') {
 	    my $comp = "main restricted universe multiverse";
-	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE $comp"; 
-	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE-updates $comp"; 
-	    push @{$config->{source}}, "http://archive.ubuntu.com/ubuntu SUITE-security $comp";
+	    push @{$config->{source}}, (
+		"http://archive.ubuntu.com/ubuntu SUITE $comp",
+		"http://archive.ubuntu.com/ubuntu SUITE-updates $comp",
+		"http://archive.ubuntu.com/ubuntu SUITE-security $comp",
+	    );
 	} else {
 	    die "implement me";
 	}
