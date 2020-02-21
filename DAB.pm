@@ -60,6 +60,9 @@ sub __url_to_filename {
 # defaults:
 #  origin: debian
 my $supported_suites = {
+    'bullseye' => {
+	ostype => "debian-11.0",
+    },
     'buster' => {
 	ostype => "debian-10.0",
     },
@@ -562,7 +565,7 @@ sub new {
 	push @$incl, 'libperl4-corelibs-perl'; # to make lsof happy
 	push @$excl, qw(systemd systemd-sysv udev module-init-tools pciutils hdparm 
 			memtest86+ parted);
-    } elsif ($suite eq 'stretch' || $suite eq 'buster') {
+    } elsif ($suite eq 'stretch' || $suite eq 'buster' || $suite eq 'bullseye') {
 	push @$excl, qw(module-init-tools pciutils hdparm
 			memtest86+ parted);
      } else {
@@ -1638,6 +1641,10 @@ sub task_postgres {
     } elsif ($suite eq 'buster') {
         @supp = ('11');
         $pgversion = '11';
+    } elsif ($suite eq 'bullseye') {
+	# FIXME update on freeze!
+	@supp = ('12');
+	$pgversion = '12';
     }
 
     $pgversion = $opts->{version} if $opts->{version};
