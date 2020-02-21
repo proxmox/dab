@@ -1,3 +1,15 @@
+dab (3.1-2) pve; urgency=medium
+
+  * support Ubuntu 19.10 Eoan
+
+  * support Ubuntu 20.04 Fossa
+
+  * raise postifx main.cf compatibility_level to 2
+
+  * add experimental support for upcoming Debian Bullseye
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 21 Feb 2020 11:50:49 +0100
+
 dab (3.1-1) pve; urgency=medium
 
   * bump for Debian Buster
