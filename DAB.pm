@@ -159,6 +159,10 @@ my $supported_suites = {
 	ostype => "ubuntu-19.10",
 	origin => 'ubuntu',
     },
+    'focal' => {
+	ostype => "ubuntu-20.04",
+	origin => 'ubuntu',
+    },
 };
 
 sub get_suite_info {
@@ -546,7 +550,7 @@ sub new {
     if ($suite eq 'vivid' || $suite eq 'wily' || $suite eq 'xenial' ||
 	$suite eq 'yakkety' || $suite eq 'zesty' || $suite eq 'artful' ||
 	$suite eq 'bionic' || $suite eq 'cosmic' || $suite eq 'disco' ||
-	$suite eq 'eoan') {
+	$suite eq 'eoan' || $suite eq 'focal') {
 	push @$incl, 'isc-dhcp-client';
 	push @$excl, qw(libmodule-build-perl);
     } elsif ($suite eq 'trusty') {
@@ -1232,7 +1236,7 @@ sub install_init_script {
     } elsif ($suite eq 'xenial' || $suite eq 'wily' || $suite eq 'vivid' ||
 	     $suite eq 'yakkety' || $suite eq 'zesty' || $suite eq 'artful' ||
 	     $suite eq 'bionic' || $suite eq 'cosmic' || $suite eq 'disco' ||
-	     $suite eq 'eoan') {
+	     $suite eq 'eoan' || $suite eq 'focal') {
 	die "unable to install init script (system uses systemd)\n";
     } elsif ($suite eq 'trusty' || $suite eq 'precise') {
 	die "unable to install init script (system uses upstart)\n";
@@ -1351,7 +1355,7 @@ sub bootstrap {
     # avoid warnings about non-existent resolv.conf
     write_file ("", "$rootdir/etc/resolv.conf", 0644);
 
-    if ($suite eq 'eoan' || $suite eq 'disco' || $suite eq 'cosmic' ||
+    if ($suite eq 'focal' || $suite eq 'eoan' || $suite eq 'disco' || $suite eq 'cosmic' ||
 	$suite eq 'bionic' || $suite eq 'artful' ||
 	$suite eq 'zesty' || $suite eq 'yakkety' || $suite eq 'xenial' ||
 	$suite eq 'wily') {
