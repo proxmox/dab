@@ -738,15 +738,18 @@ sub finalize {
 
     write_file ("", "$rootdir/var/log/syslog");
 
-    $self->logmsg ("detecting final size: ");
+    my $get_path_size = sub {
+	my ($path) = @_;
+	my $sizestr = $self->run_command ("du -sm $path", undef, 1);
+	if ($sizestr =~ m/^(\d+)\s+\Q$path\E$/) {
+	    return int($1);
+	} else {
+	    die "unable to detect size for '$path'\n";
+	}
+    };
 
-    my $sizestr = $self->run_command ("du -sm $rootdir", undef, 1);
-    my $size;
-    if ($sizestr =~ m/^(\d+)\s+\Q$rootdir\E$/) {
-	$size = $1;
-    } else {
-	die "unable to detect size\n";
-    }
+    $self->logmsg ("detecting final appliance size: ");
+    my $size = $get_path_size->($rootdir);
     $self->logmsg ("$size MB\n");
 
     $self->write_config ("$rootdir/etc/appliance.info", $size);
@@ -754,12 +757,19 @@ sub finalize {
     $self->logmsg ("creating final appliance archive\n");
 
     my $target = "$self->{targetname}.tar";
+    my $final_archive = "${target}.gz";
     unlink $target;
-    unlink "$target.gz";
+    unlink $final_archive;
 
     $self->run_command ("tar cpf $target --numeric-owner -C '$rootdir' ./etc/appliance.info");
     $self->run_command ("tar rpf $target --numeric-owner -C '$rootdir' --exclude ./etc/appliance.info .");
     $self->run_command ("gzip $target");
+
+    $self->logmsg ("detecting final commpressed appliance size: ");
+    $size = $get_path_size->($final_archive);
+    $self->logmsg ("$size MB\n");
+
+    $self->logmsg ("appliance archive: $final_archive\n");
 }
 
 sub read_installed {
