@@ -471,6 +471,12 @@ sub new {
 		    'http://ftp.debian.org/debian SUITE main contrib',
 		    'http://security.debian.org SUITE/updates main contrib',
 		);
+	    } elsif ($suite eq 'bullseye') {
+		push @{$config->{source}}, (
+		    "http://ftp.debian.org/debian SUITE main contrib",
+		    "http://ftp.debian.org/debian SUITE-updates main contrib",
+		    "http://security.debian.org SUITE-security main contrib",
+		);
 	    } else {
 		push @{$config->{source}}, (
 		    "http://ftp.debian.org/debian SUITE main contrib",
