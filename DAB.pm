@@ -596,6 +596,18 @@ sub initialize {
     my $logfd = $self->{logfd} = IO::File->new (">$self->{logfile}") ||
 	die "unable to open log file";
 
+    # FIXME: seems a bit like a hacky way??
+    my $COMPRESSOR = {
+	ext => 'gz',
+	decomp => 'gzip -d',
+    };
+    if ($self->{config}->{suite} eq 'bullseye') {
+	$COMPRESSOR = {
+	    ext => 'xz',
+	    decomp => 'xz -d',
+	};
+    }
+
     foreach my $ss (@{$self->{sources}}) {
 	my $src = $ss->{mirror} || $ss->{source};
 	my $path = "dists/$ss->{suite}/Release";
@@ -610,12 +622,13 @@ sub initialize {
 	    print $logfd $@; 
 	    warn "Release info ignored\n";
 	};
+
 	foreach my $comp (@{$ss->{comp}}) {
-	    $path = "dists/$ss->{suite}/$comp/binary-$arch/Packages.gz";
+	    $path = "dists/$ss->{suite}/$comp/binary-$arch/Packages.$COMPRESSOR->{ext}";
 	    $target = "$infodir/" . __url_to_filename ("$ss->{source}/$path");
 	    my $pkgsrc = "$src/$path";
 	    $self->download ($pkgsrc, $target);
-	    $self->run_command ("gzip -d '$target'");
+	    $self->run_command ("$COMPRESSOR->{decomp} '$target'");
 	}
     }
 }
