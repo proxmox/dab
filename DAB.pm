@@ -1569,16 +1569,10 @@ EOD
 	$self->run_command ($cmd);
     }
 
-    if ($suite eq 'intrepid') {
+    if ($suite eq 'intrepid' || $suite eq 'jaunty') {
 	# remove sysctl setup (avoid warnings at startup)
 	my $filelist = "$rootdir/etc/sysctl.d/10-console-messages.conf";
-	$filelist .= " $rootdir/etc/sysctl.d/10-process-security.conf";
-	$filelist .= " $rootdir/etc/sysctl.d/10-network-security.conf";
-	$self->run_command ("rm $filelist");
-    }
-    if ($suite eq 'jaunty') {
-	# remove sysctl setup (avoid warnings at startup)
-	my $filelist = "$rootdir/etc/sysctl.d/10-console-messages.conf";
+	$filelist .= " $rootdir/etc/sysctl.d/10-process-security.conf" if $suite eq 'intrepid';
 	$filelist .= " $rootdir/etc/sysctl.d/10-network-security.conf";
 	$self->run_command ("rm $filelist");
     }
