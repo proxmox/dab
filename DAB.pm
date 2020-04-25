@@ -1576,6 +1576,10 @@ EOD
 	$filelist .= " $rootdir/etc/sysctl.d/10-network-security.conf";
 	$self->run_command ("rm $filelist");
     }
+
+    if (-e "$rootdir/lib/systemd/system/sys-kernel-config.mount") {
+	$self->ve_command ("ln -s /dev/null /etc/systemd/system/sys-kernel-debug.mount");
+    }
 }
 
 sub enter {
