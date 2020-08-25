@@ -64,7 +64,7 @@ my $supported_suites = {
 	ostype => "debian-11.0",
     },
     'buster' => {
-	ostype => "debian-10.0",
+	ostype => "debian-10",
     },
     'stretch' => {
 	ostype => "debian-9.0",
