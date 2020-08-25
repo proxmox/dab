@@ -776,13 +776,23 @@ sub finalize {
     $self->logmsg ("creating final appliance archive\n");
 
     my $target = "$self->{targetname}.tar";
-    my $final_archive = "${target}.gz";
+
+    my $compressor = $opts->{compressor} // 'gz';
+    my $compressor2cmd_map = {
+	gz => 'gzip',
+	zst => 'zstd',
+    };
+    my $compressor_cmd = $compressor2cmd_map->{$compressor};
+    die "unkown compressor '$compressor', use one of: ". join(', ', sort keys %$compressor2cmd_map)
+	if !defined($compressor_cmd);
+
+    my $final_archive = "${target}.${compressor}";
     unlink $target;
     unlink $final_archive;
 
     $self->run_command ("tar cpf $target --numeric-owner -C '$rootdir' ./etc/appliance.info");
     $self->run_command ("tar rpf $target --numeric-owner -C '$rootdir' --exclude ./etc/appliance.info .");
-    $self->run_command ("gzip $target");
+    $self->run_command ("$compressor_cmd $target");
 
     $self->logmsg ("detecting final commpressed appliance size: ");
     $size = $get_path_size->($final_archive);

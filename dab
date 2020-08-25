@@ -12,7 +12,7 @@ $ENV{'LC_ALL'} = 'C';
 my $commands = {
     'init' => '',
     'bootstrap' => '[--exim] [--minimal]',
-    'finalize' => '[--keepmycnf]',
+    'finalize' => '[--keepmycnf] [--compressor <gz (default)|zst>]',
     'veid' => '',
     'basedir' => '',
     'packagefile' => '',
@@ -93,7 +93,7 @@ eval {
 
     } elsif ($cmd eq 'finalize') {
 	my $opts = {};
-	if (!GetOptions ($opts, 'keepmycnf')) {
+	if (!GetOptions ($opts, 'keepmycnf', 'compressor=s')) {
 	    print_usage();
 	    exit (-1);
 	}
