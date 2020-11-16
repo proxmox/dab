@@ -1,3 +1,13 @@
+dab (3.1-3) pve; urgency=medium
+
+  * handle .xz compressed Packages file from Bullseye
+
+  * allow compressing final archive with zstd
+
+  * support Ubuntu 20.10 Groovy Gorilla
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 16 Nov 2020 15:17:02 +0100
+
 dab (3.1-2) pve; urgency=medium
 
   * support Ubuntu 19.10 Eoan
