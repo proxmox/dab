@@ -796,13 +796,22 @@ sub finalize {
     my $compressor = $opts->{compressor} // 'gz';
     my $compressor2cmd_map = {
 	gz => 'gzip',
-	zst => 'zstd',
+	gzip => 'gzip',
+	zst => 'zstd -9',
+	zstd => 'zstd -9',
+	'zstd-max' => 'zstd -19 -T0', # maximal level where the decompressor can still run efficiently
+    };
+    my $compressor2ending = {
+	gzip => 'gz',
+	zstd => 'zst',
+	'zstd-max' => 'zst',
     };
     my $compressor_cmd = $compressor2cmd_map->{$compressor};
     die "unkown compressor '$compressor', use one of: ". join(', ', sort keys %$compressor2cmd_map)
 	if !defined($compressor_cmd);
 
-    my $final_archive = "${target}.${compressor}";
+    my $ending = $compressor2ending->{$compressor} // $compressor;
+    my $final_archive = "${target}.${ending}";
     unlink $target;
     unlink $final_archive;
 
