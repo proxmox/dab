@@ -97,6 +97,12 @@ my $supported_suites = {
     'ascii' => {
 	ostype => "devuan-2.0",
     },
+    'beowulf' => {
+	ostype => "devuan-3.0",
+    },
+    'chimaera' => {
+	ostype => "devuan-4.0",
+    },
 
 # UBUNTU
     'hardy' => {
