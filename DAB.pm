@@ -61,7 +61,7 @@ sub __url_to_filename {
 #  origin: debian
 my $supported_suites = {
     'bullseye' => {
-	ostype => "debian-11.0",
+	ostype => "debian-11",
     },
     'buster' => {
 	ostype => "debian-10",
