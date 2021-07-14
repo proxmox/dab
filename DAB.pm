@@ -618,17 +618,16 @@ sub initialize {
     my $logfd = $self->{logfd} = IO::File->new (">$self->{logfile}") ||
 	die "unable to open log file";
 
-    # FIXME: seems a bit like a hacky way??
-    my $COMPRESSOR = {
-	ext => 'gz',
-	decomp => 'gzip -d',
-    };
-    if ($self->{config}->{suite} eq 'bullseye') {
-	$COMPRESSOR = {
+    my $COMPRESSORS = [
+	{
 	    ext => 'xz',
 	    decomp => 'xz -d',
-	};
-    }
+	},
+	{
+	    ext => 'gz',
+	    decomp => 'gzip -d',
+	},
+    ];
 
     foreach my $ss (@{$self->{sources}}) {
 	my $src = $ss->{mirror} || $ss->{source};
@@ -645,12 +644,21 @@ sub initialize {
 	    warn "Release info ignored\n";
 	};
 
-	foreach my $comp (@{$ss->{comp}}) {
-	    $path = "dists/$ss->{suite}/$comp/binary-$arch/Packages.$COMPRESSOR->{ext}";
-	    $target = "$infodir/" . __url_to_filename ("$ss->{source}/$path");
-	    my $pkgsrc = "$src/$path";
-	    $self->download ($pkgsrc, $target);
-	    $self->run_command ("$COMPRESSOR->{decomp} '$target'");
+	foreach my $compressor (@$COMPRESSORS) {
+	    foreach my $comp (@{$ss->{comp}}) {
+		$path = "dists/$ss->{suite}/$comp/binary-$arch/Packages.$compressor->{ext}";
+		$target = "$infodir/" . __url_to_filename ("$ss->{source}/$path");
+		my $pkgsrc = "$src/$path";
+		eval {
+		    $self->download ($pkgsrc, $target);
+		    $self->run_command ("$compressor->{decomp} '$target'");
+		};
+		if (my $err = $@) {
+		    print $logfd "could not download Packages.$compressor->{ext}\n";
+		} else {
+		    last;
+		}
+	    }
 	}
     }
 }
