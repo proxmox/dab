@@ -177,6 +177,10 @@ my $supported_suites = {
 	ostype => "ubuntu-21.04",
 	origin => 'ubuntu',
     },
+    'impish' => {
+	ostype => "ubuntu-21.10",
+	origin => 'ubuntu',
+    },
 };
 
 sub get_suite_info {
@@ -571,7 +575,7 @@ sub new {
 	$suite eq 'yakkety' || $suite eq 'zesty' || $suite eq 'artful' ||
 	$suite eq 'bionic' || $suite eq 'cosmic' || $suite eq 'disco' ||
 	$suite eq 'eoan' || $suite eq 'focal' || $suite eq 'groovy'
-	|| $suite eq 'hirsute'
+	|| $suite eq 'hirsute' || $suite eq 'impish'
     ) {
 	push @$incl, 'isc-dhcp-client';
 	push @$excl, qw(libmodule-build-perl);
@@ -1309,7 +1313,7 @@ sub install_init_script {
 	     $suite eq 'yakkety' || $suite eq 'zesty' || $suite eq 'artful' ||
 	     $suite eq 'bionic' || $suite eq 'cosmic' || $suite eq 'disco' ||
 	     $suite eq 'eoan' || $suite eq 'focal' || $suite eq 'groovy'
-	     || $suite eq 'hirsute'
+	     || $suite eq 'hirsute' || $suite eq 'impish'
     ) {
 	die "unable to install init script (system uses systemd)\n";
     } elsif ($suite eq 'trusty' || $suite eq 'precise') {
@@ -1430,6 +1434,7 @@ sub bootstrap {
     write_file ("", "$rootdir/etc/resolv.conf", 0644);
 
     if (
+	$suite eq 'impish' ||
 	$suite eq 'hirsute' || $suite eq 'groovy' || $suite eq 'focal' ||
 	$suite eq 'eoan' || $suite eq 'disco' || $suite eq 'cosmic' ||
 	$suite eq 'bionic' || $suite eq 'artful' ||
