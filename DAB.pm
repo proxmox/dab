@@ -648,8 +648,8 @@ sub initialize {
 	    warn "Release info ignored\n";
 	};
 
-	foreach my $compressor (@$COMPRESSORS) {
-	    foreach my $comp (@{$ss->{comp}}) {
+	foreach my $comp (@{$ss->{comp}}) {
+	    foreach my $compressor (@$COMPRESSORS) {
 		$path = "dists/$ss->{suite}/$comp/binary-$arch/Packages.$compressor->{ext}";
 		$target = "$infodir/" . __url_to_filename ("$ss->{source}/$path");
 		my $pkgsrc = "$src/$path";
