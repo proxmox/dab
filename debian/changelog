@@ -1,3 +1,11 @@
+dab (3.2-2) stable; urgency=medium
+
+  * try all available compressors when querying the Packages index file
+
+  * add preliminary support for Ubuntu 21.10 Impish Indri
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 14 Jul 2021 17:41:12 +0200
+
 dab (3.2-1) stable; urgency=medium
 
   * support Ubuntu 21.04 Hirsute Hippo
