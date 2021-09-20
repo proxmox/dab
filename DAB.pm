@@ -438,6 +438,45 @@ sub __allocate_ve {
     return $self->{veid};
 }
 
+# just use some simple heuristic for now, merge usr for releases newer than ubuntu 21.x or debian 11
+sub can_usr_merge {
+    my ($self) = @_;
+
+    my $ostype = $self->{config}->{ostype};
+
+    # FIXME: add configuration override posibillity
+
+    if ($ostype =~ m/^debian-(\d+)/) {
+	return int($1) >= 11;
+    } elsif ($ostype =~ m/^ubuntu-(\d+)/) {
+	return int($1) >= 21;
+    }
+    return; # false
+}
+
+sub setup_usr_merge {
+    my ($self) = @_;
+
+    my $rootfs = $self->{rootfs};
+    my $arch = $self->{config}->{architecture};
+
+    # similar to https://salsa.debian.org/installer-team/debootstrap/-/blob/master/functions#L1354
+    my @merged_dirs = qw(bin sbin lib);
+
+    if ($arch eq 'amd64') {
+	push @merged_dirs, qw(lib32 lib64 libx32);
+    } elsif ($arch eq 'i386') {
+	push @merged_dirs, qw(lib64 libx32);
+    }
+
+    $self->logmsg ("setup usr-merge symlinks for '" . join("', '", @merged_dirs) . "'\n");
+
+    for my $dir (@merged_dirs) {
+	symlink("usr/$dir", "$rootfs/$dir") or warn "could not create symlink - $!\n";
+	mkpath "$rootfs/usr/$dir";
+    }
+}
+
 sub new {
     my ($class, $config) = @_;
 
@@ -1397,6 +1436,12 @@ sub bootstrap {
 
     # extract required packages first
     $self->logmsg ("create basic environment\n");
+
+    if ($self->can_usr_merge()) {
+	$self->setup_usr_merge();
+    }
+
+    $self->logmsg ("extract required packages to rootfs\n");
     foreach my $p (@$required) {
 	my $filename = $self->getpkgfile ($p);
 	my $content = $self->run_command("ar -t '$self->{cachedir}/$filename'", undef, 1);
