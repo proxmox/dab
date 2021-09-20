@@ -60,6 +60,9 @@ sub __url_to_filename {
 # defaults:
 #  origin: debian
 my $supported_suites = {
+    'bookworm' => {
+	ostype => "debian-12",
+    },
     'bullseye' => {
 	ostype => "debian-11",
     },
@@ -489,7 +492,7 @@ sub new {
 		    'http://ftp.debian.org/debian SUITE main contrib',
 		    'http://security.debian.org SUITE/updates main contrib',
 		);
-	    } elsif ($suite eq 'bullseye') {
+	    } elsif ($suite eq 'bullseye' || $suite eq 'bookworm') {
 		push @{$config->{source}}, (
 		    "http://ftp.debian.org/debian SUITE main contrib",
 		    "http://ftp.debian.org/debian SUITE-updates main contrib",
@@ -593,14 +596,11 @@ sub new {
     } elsif ($suite eq 'jessie') {
 	push @$incl, 'sysvinit-core'; # avoid systemd and udev
 	push @$incl, 'libperl4-corelibs-perl'; # to make lsof happy
-	push @$excl, qw(systemd systemd-sysv udev module-init-tools pciutils hdparm 
-			memtest86+ parted);
-    } elsif ($suite eq 'stretch' || $suite eq 'buster' || $suite eq 'bullseye') {
-	push @$excl, qw(module-init-tools pciutils hdparm
-			memtest86+ parted);
+	push @$excl, qw(systemd systemd-sysv udev module-init-tools pciutils hdparm memtest86+ parted);
+    } elsif ($suite eq 'stretch' || $suite eq 'buster' || $suite eq 'bullseye' || $suite eq 'bookworm') {
+	push @$excl, qw(module-init-tools pciutils hdparm memtest86+ parted);
      } else {
-	push @$excl, qw(udev module-init-tools pciutils hdparm 
-			memtest86+ parted);
+	push @$excl, qw(udev module-init-tools pciutils hdparm memtest86+ parted);
     }
 
     $self->{incl} = $incl;
@@ -1439,7 +1439,8 @@ sub bootstrap {
 	$suite eq 'eoan' || $suite eq 'disco' || $suite eq 'cosmic' ||
 	$suite eq 'bionic' || $suite eq 'artful' ||
 	$suite eq 'zesty' || $suite eq 'yakkety' || $suite eq 'xenial' ||
-	$suite eq 'wily') {
+	$suite eq 'wily'
+    ) {
 	# no need to configure loopback device
     } else {
 	$data = "auto lo\niface lo inet loopback\n";
@@ -1725,9 +1726,12 @@ sub task_postgres {
         @supp = ('11');
         $pgversion = '11';
     } elsif ($suite eq 'bullseye') {
-	# FIXME update on freeze!
-	@supp = ('12');
-	$pgversion = '12';
+	@supp = ('13');
+	$pgversion = '13';
+    } elsif ($suite eq 'bookworm') {
+	# FIXME: update once froozen
+	@supp = ('13');
+	$pgversion = '13';
     }
 
     $pgversion = $opts->{version} if $opts->{version};
