@@ -1401,9 +1401,9 @@ sub bootstrap {
 	my $filename = $self->getpkgfile ($p);
 	my $content = $self->run_command("ar -t '$self->{cachedir}/$filename'", undef, 1);
 	if ($content =~ m/^data.tar.xz$/m) {
-	    $self->run_command ("ar -p '$self->{cachedir}/$filename' data.tar.xz | tar -C '$rootdir' -xJf -");
+	    $self->run_command ("ar -p '$self->{cachedir}/$filename' data.tar.xz | tar -C '$rootdir' -xJf - --keep-directory-symlink");
 	} else {
-	    $self->run_command ("ar -p '$self->{cachedir}/$filename' data.tar.gz | tar -C '$rootdir' -xzf -");
+	    $self->run_command ("ar -p '$self->{cachedir}/$filename' data.tar.gz | tar -C '$rootdir' -xzf - --keep-directory-symlink");
 	}
     }
 
