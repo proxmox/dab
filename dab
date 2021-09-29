@@ -27,11 +27,6 @@ my $commands = {
 };
 
 sub print_usage {
-    my ($msg) = @_;
-
-    if ($msg) {
-	print STDERR "\nERROR: $msg\n\n";
-    }
     print STDERR "USAGE: dab <command> [parameters]\n\n";
 
     for my $cmd (sort keys %$commands) {
@@ -43,20 +38,26 @@ sub print_usage {
     }
 }
 
-if (scalar (@ARGV) == 0) {
-    print_usage("no command specified");
+sub fatal_usage {
+    my ($msg) = @_;
+
+    print STDERR "\nERROR: $msg\n\n" if $msg;
+    print_usage();
+
     exit (-1);
+}
+
+if (scalar (@ARGV) == 0) {
+    fatal_usage("no command specified");
 }
 
 my $cmdline = join (' ', @ARGV);
 my $cmd = shift @ARGV;
 
 if (!$cmd) {
-    print_usage("no command specified");
-    exit (-1);
+    fatal_usage("no command specified");
 } elsif (!exists $commands->{$cmd}) {
-    print_usage("unknown command '$cmd'");
-    exit (-1);
+    fatal_usage("unknown command '$cmd'");
 } elsif ($cmd eq 'help') {
     print_usage();
     exit (0);
@@ -83,8 +84,7 @@ eval {
     } elsif ($cmd eq 'bootstrap') {
 	my $opts = {};
 	if (!GetOptions ($opts, 'exim', 'minimal')) {
-	    print_usage();
-	    exit (-1);
+	    fatal_usage();
 	}
 	die "command 'bootstrap' expects no arguments.\n" if scalar (@ARGV) != 0;
 
@@ -94,8 +94,7 @@ eval {
     } elsif ($cmd eq 'finalize') {
 	my $opts = {};
 	if (!GetOptions ($opts, 'keepmycnf', 'compressor=s')) {
-	    print_usage();
-	    exit (-1);
+	    fatal_usage();
 	}
 	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
 
@@ -119,8 +118,7 @@ eval {
     } elsif ($cmd eq 'list') {
 	my $verbose;
 	if (!GetOptions ('verbose' =>\$verbose)) {
-	    print_usage();
-	    exit (-1);
+	    fatal_usage();
 	}
 	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
 
@@ -138,15 +136,13 @@ eval {
     } elsif ($cmd eq 'task') {
 	my $task = shift @ARGV;
 	if (!$task) {
-	    print_usage("no task specified");
-	    exit (-1);
+	    fatal_usage("no task specified");
 	}
 
 	my $opts = {};
 	if ($task eq 'mysql') {
 	    if (!GetOptions ($opts, 'password=s', 'start')) {
-		print_usage();
-		exit (-1);
+		fatal_usage();
 	    }
 	    die "task '$task' expects no arguments.\n" if scalar (@ARGV) != 0;
 
@@ -154,8 +150,7 @@ eval {
 
 	} elsif ($task eq 'postgres') {
 	    if (!GetOptions ($opts, 'version=s', 'start')) {
-		print_usage();
-		exit (-1);
+		fatal_usage();
 	    }
 	    die "task '$task' expects no arguments.\n" if scalar (@ARGV) != 0;
 
@@ -163,17 +158,14 @@ eval {
 
 	} elsif ($task eq 'php') {
 	    if (!GetOptions ($opts, 'memlimit=i')) {
-		print_usage();
-		exit (-1);
+		fatal_usage();
 	    }
 	    die "task '$task' expects no arguments.\n" if scalar (@ARGV) != 0;
 
 	    $dab->task_php ($opts);
 
 	} else {
-	    print_usage("unknown task '$task'");
-	    exit (-1);
-
+	    fatal_usage("unknown task '$task'");
 	}
 
     } elsif ($cmd eq 'install' || $cmd eq 'unpack') {
@@ -221,8 +213,7 @@ eval {
 	$dab->cleanup(1);
 
     } else {
-	print_usage("invalid command '$cmd'");
-	exit (-1);
+	fatal_usage("invalid command '$cmd'");
     }
 
 };
