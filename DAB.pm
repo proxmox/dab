@@ -1376,9 +1376,17 @@ sub bootstrap {
     my $standard;
 
     my $mta = $opts->{exim} ? 'exim' : 'postfix';
-
     if ($mta eq 'postfix') {
 	push @$important, "postfix";
+    }
+
+    if ($opts->{include}) {
+	push @$important, split(',', $opts->{include});
+    }
+
+    my $exclude = {};
+    if ($opts->{exclude}) {
+	$exclude->{$_} = 1 for split(',', $opts->{exclude});
     }
 
     foreach my $p (sort keys %$pkginfo) {
@@ -1389,6 +1397,7 @@ sub bootstrap {
 	next if $p =~ m/(selinux|semanage|policycoreutils)/;
 
 	push @$required, $p  if $pri eq 'required';
+	next if $exclude->{$p};
 	push @$important, $p if $pri eq 'important';
 	push @$standard, $p if $pri eq 'standard' && !$opts->{minimal};
     }
