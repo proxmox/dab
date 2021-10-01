@@ -884,8 +884,7 @@ sub read_installed {
 
     my $pkgfilelist = "$rootdir/var/lib/dpkg/status";
     local $/ = '';
-    open (PKGLST, "<$pkgfilelist") ||
-	die "unable to open '$pkgfilelist'";
+    open (PKGLST, "<$pkgfilelist") or die "unable to open '$pkgfilelist' - $!";
 
     my $pkglist = {};
 
