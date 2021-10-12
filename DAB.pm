@@ -1449,14 +1449,23 @@ sub bootstrap {
 	$self->setup_usr_merge();
     }
 
+    my $compressor2opt = {
+	'gz' => '--gzip',
+	'xz' => '--xz',
+    };
+    my $compressor_re = join('|', keys $compressor2opt->%*);
+
     $self->logmsg ("extract required packages to rootfs\n");
     foreach my $p (@$required) {
 	my $filename = $self->getpkgfile ($p);
 	my $content = $self->run_command("ar -t '$self->{cachedir}/$filename'", undef, 1);
-	if ($content =~ m/^data.tar.xz$/m) {
-	    $self->run_command ("ar -p '$self->{cachedir}/$filename' data.tar.xz | tar -C '$rootdir' -xJf - --keep-directory-symlink");
+	if ($content =~ m/^(data.tar.($compressor_re))$/m) {
+	    my $archive = $1;
+	    my $tar_opts = "--keep-directory-symlink $compressor2opt->{$2}";
+
+	    $self->run_command("ar -p '$self->{cachedir}/$filename' '$archive' | tar -C '$rootdir' -xf - $tar_opts");
 	} else {
-	    $self->run_command ("ar -p '$self->{cachedir}/$filename' data.tar.gz | tar -C '$rootdir' -xzf - --keep-directory-symlink");
+	    die "unexpected error for $p: no data.tar.{xz,gz,zst} found...";
 	}
     }
 
