@@ -1450,6 +1450,7 @@ sub bootstrap {
     }
 
     my $compressor2opt = {
+	'zst' => '--zstd',
 	'gz' => '--gzip',
 	'xz' => '--xz',
     };
