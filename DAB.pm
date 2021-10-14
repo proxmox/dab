@@ -1765,7 +1765,7 @@ sub task_postgres {
     my ($self, $opts) = @_;
 
     my @supp = ('7.4', '8.1');
-    my $pgversion = '8.1';
+    my $pgversion; # NOTE: not setting that defaults to the distro default, normally the best choice
 
     my $suite = $self->{config}->{suite};
 
@@ -1776,34 +1776,33 @@ sub task_postgres {
 	@supp = ('8.4');
 	$pgversion = '8.4';
     } elsif ($suite eq 'wheezy') {
-        @supp = ('9.1');
-        $pgversion = '9.1';
+	@supp = ('9.1');
+	$pgversion = '9.1';
     } elsif ($suite eq 'jessie') {
-        @supp = ('9.4');
-        $pgversion = '9.4';
+	@supp = ('9.4');
+	$pgversion = '9.4';
     } elsif ($suite eq 'stretch') {
-        @supp = ('9.6');
-        $pgversion = '9.6';
+	@supp = ('9.6');
+	$pgversion = '9.6';
     } elsif ($suite eq 'buster') {
-        @supp = ('11');
-        $pgversion = '11';
+	@supp = ('11');
+	$pgversion = '11';
     } elsif ($suite eq 'bullseye') {
 	@supp = ('13');
-	$pgversion = '13';
     } elsif ($suite eq 'bookworm') {
 	# FIXME: update once froozen
-	@supp = ('13');
-	$pgversion = '13';
+	@supp = ('13', '14');
     }
-
     $pgversion = $opts->{version} if $opts->{version};
 
-    die "unsupported postgres version '$pgversion'\n" 
-	if !grep { $pgversion eq $_; } @supp;
+    my $required;
+    if (defined($pgversion)) {
+	die "unsupported postgres version '$pgversion'\n" if !grep { $pgversion eq $_; } @supp;
 
-    my $rootdir = $self->{rootfs};
-
-    my $required = $self->compute_required (["postgresql-$pgversion"]);
+	$required = $self->compute_required (["postgresql-$pgversion"]);
+    } else {
+	$required = $self->compute_required (["postgresql"]);
+    }
 
     $self->cache_packages ($required);
  

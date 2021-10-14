@@ -330,13 +330,15 @@ Install a postgres database server.
 
 =item I<--version=XXX>
 
-Select Postgres version. Posible values are C<7.4>, C<8.1> and C<8.3> (depends
-on the selected suite).
+Select Postgres version. Posible values are for example C<9.6>, C<11> or C<13>,
+they depend on the selected distribution suite. Defaults to none, which selects
+the unversioned metapackage that pulls in the suites default version, normally
+a good choice to make.
 
 =item I<--start>
 
-Start the postgres server (if you want to execute sql commands during appliance
-generation).
+Start the postgres server immediately. Useful, for example, if you want to
+execute sql commands during appliance generation.
 
 =back
 
