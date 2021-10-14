@@ -1870,7 +1870,7 @@ sub task_php {
     my $memlimit = $opts->{memlimit};
     my $rootdir = $self->{rootfs};
 
-    my $required = $self->compute_required ([qw (php5 php5-cli libapache2-mod-php5 php5-gd)]);
+    my $required = $self->compute_required([qw(php php-cli libapache2-mod-php php-gd)]);
 
     $self->cache_packages ($required);
 
