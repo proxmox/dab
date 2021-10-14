@@ -1406,7 +1406,6 @@ sub bootstrap {
     $important = $self->closure($closure, $important);
 
     if (!$opts->{minimal}) {
-	push @$standard, 'xbase-clients';
 	$standard = $self->closure($closure, $standard);
     }
 
