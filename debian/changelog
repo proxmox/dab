@@ -1,3 +1,15 @@
+dab (3.4.0) stable; urgency=medium
+
+  * bootstrap: add simple include/exclude mechanism
+  * read installed: do not be greedy when matching package status value
+  * bootstrap: extract: support zstd compressed .deb archives
+  * tasks: php: default to unversioned metapackage
+  * tasks: postgres: default to unversioned metapackage
+  * bootstrap: do not pull in xbase-clients by default
+  * switch to native versioning scheme for this Proxmox VE native package
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 14 Oct 2021 10:46:04 +0200
+
 dab (3.3-1) stable; urgency=medium
 
   * bootstrap: tar extract: pass "keep-directory-symlink" flag
