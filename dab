@@ -12,7 +12,7 @@ $ENV{'LC_ALL'} = 'C';
 my $commands = {
     'init' => '',
     'bootstrap' => '[--exim] [--include <a[,b..]]>] --exclude [<a[,b..]]>] [--minimal]',
-    'finalize' => '[--keepmycnf] [--compressor <gz (default)|zst>]',
+    'finalize' => '[--keepmycnf] [--compressor <gz[ip] (default)|zst[d]|zstd-max>]',
     'veid' => '',
     'basedir' => '',
     'packagefile' => '',
@@ -247,14 +247,26 @@ Bootstrap a debian system and allocate a temporary container (we use IDs 90000
 and above).
 
 =over
- 
+
 =item I<--exim>
 
-Use exim as MTA (we use postfix by default)
+Use exim as MTA (dab selects postfix by default)
 
 =item I<--minimal>
 
-Do not install standard packages.
+Do not auto-select packages with standard priority for installation.
+
+=item I<--include <a[,b..]]>
+
+A comma-separated list of packages to always include in bootstrap. Note that no
+transitive dependency resolution is done, you may need to specify those
+yourself.
+
+=item I<--exclude <a[,b..]]>
+
+A comma-separated list of packages to exlcude in bootstrap. Note that no
+transitive dependency resolution is done for others to get excluded, you may
+need to specify those yourself.
 
 =back
 
@@ -350,6 +362,16 @@ package.
 =item I<--keepmycnf>
 
 Do not delete file C</root/.my.cfg> (mysql).
+
+=item I<--compressor <gz[ip] (default)|zst[d]|zstd-max>]>
+
+Select the compressor to process the rootfs archive with. C<gzip> is a good
+choice to make the archive also available on older systems, but using C<zstd>
+or even C<zstd-max> results in a higher compression ration while keeping
+decompression very fast and highly efficient. Note that C<zstd-max> uses the
+highest compression ratio without any decompression performance hit possible,
+it will use as many threads as there are onlince CPU threads and may thus
+increase the system load significantly for tens of seconds up to minutes.
 
 =back
 
@@ -541,13 +563,14 @@ The following files are created inside your working directory:
 =head1 AUTHOR
 
 Dietmar Maurer <dietmar@proxmox.com>
+Thomas Lamprecht <t.lamprecht@proxmox.com>
 
 Many thanks to Proxmox Server Solutions (www.proxmox.com) for sponsoring this
 work.
 
 =head1 COPYRIGHT AND DISCLAIMER
 
-Copyright (C) 2007-2020 Proxmox Server Solutions GmbH
+Copyright (C) 2007-2021 Proxmox Server Solutions GmbH
 
 Copyright: dab is under GNU GPL, the GNU General Public License.
 
