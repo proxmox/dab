@@ -937,7 +937,7 @@ sub ve_status {
 	}
     }
     close($fh);
-    
+
     return $res;
 }
 
@@ -949,9 +949,9 @@ sub ve_command {
 
     if (ref ($cmd) eq 'ARRAY') {
 	unshift @$cmd, 'lxc-attach', '-n', $veid, '--rcfile', $conffile, '--clear-env', '--', 'defenv';
-	$self->run_command ($cmd, $input);	
+	$self->run_command($cmd, $input);
     } else {
-	$self->run_command ("lxc-attach -n $veid --rcfile $conffile --clear-env -- defenv $cmd", $input);
+	$self->run_command("lxc-attach -n $veid --rcfile $conffile --clear-env -- defenv $cmd", $input);
     }
 }
 
@@ -1402,12 +1402,12 @@ sub bootstrap {
     }
 
     my $closure = {};
-    $required = $self->closure ($closure, $required);
-    $important = $self->closure ($closure, $important);
+    $required = $self->closure($closure, $required);
+    $important = $self->closure($closure, $important);
 
     if (!$opts->{minimal}) {
 	push @$standard, 'xbase-clients';
-	$standard = $self->closure ($closure, $standard);
+	$standard = $self->closure($closure, $standard);
     }
 
     # test if we have all 'ubuntu-minimal' and 'ubuntu-standard' packages
@@ -1574,8 +1574,7 @@ EOD
     $self->ve_divert_add ("/sbin/udevd");
 
     if ($suite eq 'etch') {
-	# disable apache2 startup
-	write_file ("NO_START=1\n", "$rootdir/etc/default/apache2");
+	write_file ("NO_START=1\n", "$rootdir/etc/default/apache2"); # disable apache2 startup
     }
 
     $self->logmsg ("configure required packages\n");
@@ -1757,7 +1756,7 @@ sub compute_required {
     my $instpkgs = $self->read_installed ();
 
     my $closure = {};
-    __record_provides ($pkginfo, $closure, [keys %$instpkgs]);
+    __record_provides($pkginfo, $closure, [keys $instpkgs->%*]);
 
     return $self->closure ($closure, $pkglist);
 }
@@ -1826,7 +1825,7 @@ sub task_mysql {
     my $rootdir = $self->{rootfs};
 
     my $suite = $self->{config}->{suite};
-    
+
     my $ver = '5.0';
     if ($suite eq 'squeeze') {
       $ver = '5.1';
