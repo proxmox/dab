@@ -216,6 +216,10 @@ my $supported_suites = {
 	ostype => "ubuntu-21.10",
 	origin => 'ubuntu',
     },
+    'jammy' => {
+	ostype => "ubuntu-22.04",
+	origin => 'ubuntu',
+    },
 };
 
 sub get_suite_info {
@@ -655,6 +659,9 @@ sub new {
     if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{flags}->{systemd}) {
 	push @$incl, 'isc-dhcp-client';
 	push @$excl, qw(libmodule-build-perl);
+	if ($suite eq 'jammy') {
+	    push @$excl, qw(fuse); # avoid fuse2 <-> fuse3 conflict
+	}
     } elsif ($suite eq 'trusty') {
 	push @$excl, qw(systemd systemd-services libpam-systemd libsystemd-daemon0 memtest86+);
    } elsif ($suite eq 'precise') {
