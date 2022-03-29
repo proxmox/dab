@@ -654,7 +654,7 @@ sub new {
 
     if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{flags}->{systemd}) {
 	push @$incl, 'isc-dhcp-client';
-	push @$excl, qw(libmodule-build-perl);
+	push @$excl, qw(libmodule-build-perl plymouth plymouth-theme-ubuntu-text powermgmt-base);
 	if ($suite eq 'jammy') {
 	    push @$excl, qw(fuse); # avoid fuse2 <-> fuse3 conflict
 	}
