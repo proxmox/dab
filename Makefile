@@ -34,6 +34,10 @@ all:
 dinstall: deb
 	dpkg -i ${DEB}
 
+test: DAB.pm dab
+	perl -wc dab
+	perl -wc DAB.pm
+
 .PHONY: install
 install: dab dab.1 dab.1.pod DAB.pm devices.tar.gz ${SCRIPTS}
 	install -d ${SBINDIR}
