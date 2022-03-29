@@ -59,6 +59,8 @@ sub __url_to_filename {
 
 # defaults:
 #  origin: debian
+#  flags:
+#    systemd: true (except for devuan ostypes)
 my $supported_suites = {
     'bookworm' => {
 	ostype => "debian-12",
@@ -76,19 +78,31 @@ my $supported_suites = {
 	ostype => "debian-8.0",
     },
     'wheezy' => {
+	flags => {
+	    systemd => 0,
+	},
 	ostype => "debian-7.0",
     },
     'squeeze' => {
+	flags => {
+	    systemd => 0,
+	},
 	ostype => "debian-6.0",
     },
     'lenny' => {
+	flags => {
+	    systemd => 0,
+	},
 	ostype => "debian-5.0",
     },
     'etch' => {
+	flags => {
+	    systemd => 0,
+	},
 	ostype => "debian-4.0",
     },
 
-# DEVUAN
+# DEVUAN (imply systemd = 0 default)
     'devuan-jessie' => {
 	suite => 'jessie',
 	ostype => "devuan-1.0",
@@ -109,22 +123,37 @@ my $supported_suites = {
 
 # UBUNTU
     'hardy' => {
+	flags => {
+	    systemd => 0,
+	},
 	ostype => "ubuntu-8.04",
 	origin => 'ubuntu',
     },
     'intrepid' => {
+	flags => {
+	    systemd => 0,
+	},
 	ostype => "ubuntu-8.10",
 	origin => 'ubuntu',
     },
     'jaunty' => {
+	flags => {
+	    systemd => 0,
+	},
 	ostype => "ubuntu-9.04",
 	origin => 'ubuntu',
     },
     'precise' => {
+	flags => {
+	    systemd => 0,
+	},
 	ostype => "ubuntu-12.04",
 	origin => 'ubuntu',
     },
     'trusty' => {
+	flags => {
+	    systemd => 0,
+	},
 	ostype => "ubuntu-14.04",
 	origin => 'ubuntu',
     },
@@ -194,6 +223,13 @@ sub get_suite_info {
     # set defaults
     $suiteinfo->{origin} //= 'debian';
     $suiteinfo->{suite} //= $suite;
+
+    $suiteinfo->{flags} //= {};
+    if ($suiteinfo->{ostype} =~ /^devuan/) {
+	$suiteinfo->{flags}->{systemd} //= 0;
+    } else {
+	$suiteinfo->{flags}->{systemd} //= 1;
+    }
 
     return $suiteinfo;
 }
@@ -613,12 +649,7 @@ sub new {
     # ubuntu has too many dependencies on udev, so
     # we cannot exclude it (instead we disable udevd)
 
-    if ($suite eq 'vivid' || $suite eq 'wily' || $suite eq 'xenial' ||
-	$suite eq 'yakkety' || $suite eq 'zesty' || $suite eq 'artful' ||
-	$suite eq 'bionic' || $suite eq 'cosmic' || $suite eq 'disco' ||
-	$suite eq 'eoan' || $suite eq 'focal' || $suite eq 'groovy'
-	|| $suite eq 'hirsute' || $suite eq 'impish'
-    ) {
+    if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{flags}->{systemd}) {
 	push @$incl, 'isc-dhcp-client';
 	push @$excl, qw(libmodule-build-perl);
     } elsif ($suite eq 'trusty') {
@@ -1339,6 +1370,7 @@ sub install_init_script {
     my ($self, $script, $runlevel, $prio) = @_;
 
     my $suite = $self->{config}->{suite};
+    my $suiteinfo = get_suite_info($suite);
     my $rootdir = $self->{rootfs};
 
     my $base = basename ($script);
@@ -1347,12 +1379,7 @@ sub install_init_script {
     $self->run_command ("install -m 0755 '$script' '$target'");
     if ($suite eq 'etch' || $suite eq 'lenny') {
 	$self->ve_command ("update-rc.d $base start $prio $runlevel .");
-    } elsif ($suite eq 'xenial' || $suite eq 'wily' || $suite eq 'vivid' ||
-	     $suite eq 'yakkety' || $suite eq 'zesty' || $suite eq 'artful' ||
-	     $suite eq 'bionic' || $suite eq 'cosmic' || $suite eq 'disco' ||
-	     $suite eq 'eoan' || $suite eq 'focal' || $suite eq 'groovy'
-	     || $suite eq 'hirsute' || $suite eq 'impish'
-    ) {
+    } elsif ($suiteinfo->{flags}->{systemd}) {
 	die "unable to install init script (system uses systemd)\n";
     } elsif ($suite eq 'trusty' || $suite eq 'precise') {
 	die "unable to install init script (system uses upstart)\n";
@@ -1369,6 +1396,7 @@ sub bootstrap {
     my $pkginfo = $self->pkginfo();
     my $veid = $self->{veid};
     my $suite = $self->{config}->{suite};
+    my $suiteinfo = get_suite_info($suite);
 
     my $important = [ @{$self->{incl}} ];
     my $required;
@@ -1495,15 +1523,9 @@ sub bootstrap {
     # avoid warnings about non-existent resolv.conf
     write_file ("", "$rootdir/etc/resolv.conf", 0644);
 
-    if (
-	$suite eq 'impish' ||
-	$suite eq 'hirsute' || $suite eq 'groovy' || $suite eq 'focal' ||
-	$suite eq 'eoan' || $suite eq 'disco' || $suite eq 'cosmic' ||
-	$suite eq 'bionic' || $suite eq 'artful' ||
-	$suite eq 'zesty' || $suite eq 'yakkety' || $suite eq 'xenial' ||
-	$suite eq 'wily'
-    ) {
+    if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{flags}->{systemd}) {
 	# no need to configure loopback device
+	# FIXME: Debian (systemd based?) too?
     } else {
 	$data = "auto lo\niface lo inet loopback\n";
 	mkdir "$rootdir/etc/network";
