@@ -120,6 +120,9 @@ my $supported_suites = {
     'chimaera' => {
 	ostype => "devuan-4.0",
     },
+    'daedalus' => {
+	ostype => "devuan-5.0",
+    },
 
 # UBUNTU
     'hardy' => {
