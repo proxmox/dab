@@ -243,15 +243,12 @@ sub get_suite_info {
 
 sub download {
     my ($self, $url, $path) = @_;
+    my $tmpfn = "$path.tmp$$";
 
     $self->logmsg ("download: $url\n");
-    my $tmpfn = "$path.tmp$$";
-    eval {
-	$self->run_command ("wget -q '$url'  -O '$tmpfn'"); 
-    };
 
-    my $err = $@;
-    if ($err) {
+    eval { $self->run_command ("wget -q '$url'  -O '$tmpfn'") };
+    if (my $err = $@) {
 	unlink $tmpfn;
 	die $err;
     }
@@ -644,14 +641,13 @@ sub new {
 
     $self->{infodir} = "info";
 
-    $self->__allocate_ve ();
+    $self->__allocate_ve();
 
     $self->{cachedir} = ($config->{cachedir} || 'cache')  . "/$suite";;
 
     my $incl = [qw (less ssh openssh-server logrotate)];
 
-    my $excl = [qw (modutils reiserfsprogs ppp pppconfig pppoe
-		    pppoeconf nfs-common mtools ntp)];
+    my $excl = [qw (modutils reiserfsprogs ppp pppconfig pppoe pppoeconf nfs-common mtools ntp)];
 
     # ubuntu has too many dependencies on udev, so
     # we cannot exclude it (instead we disable udevd)
@@ -668,11 +664,10 @@ sub new {
 	push @$excl, qw(systemd systemd-services libpam-systemd libsystemd-daemon0 memtest86+ ubuntu-standard);
     } elsif ($suite eq 'hardy') {
 	push @$excl, qw(kbd);
-	push @$excl, qw(apparmor apparmor-utils ntfs-3g
-			friendly-recovery);
+	push @$excl, qw(apparmor apparmor-utils ntfs-3g friendly-recovery);
     } elsif ($suite eq 'intrepid' || $suite eq 'jaunty') {
-	push @$excl, qw(apparmor apparmor-utils libapparmor1 libapparmor-perl 
-			libntfs-3g28 ntfs-3g friendly-recovery);
+	push @$excl, qw(apparmor apparmor-utils libapparmor1 libapparmor-perl libntfs-3g28);
+	push @$excl, qw(ntfs-3g friendly-recovery);
     } elsif ($suite eq 'jessie') {
 	push @$incl, 'sysvinit-core'; # avoid systemd and udev
 	push @$incl, 'libperl4-corelibs-perl'; # to make lsof happy
@@ -854,14 +849,9 @@ sub finalize {
     $self->run_command ("lxc-stop -n $veid --rcfile $conffile --kill");
 
     unlink "$rootdir/sbin/defenv";
-
     unlink <$rootdir/root/dead.letter*>;
-
     unlink "$rootdir/var/log/init.log";
-
-    unlink "$rootdir/aquota.group";
-
-    unlink "$rootdir/aquota.user";
+    unlink "$rootdir/aquota.group", "$rootdir/aquota.user";
 
     write_file ("", "$rootdir/var/log/syslog");
 
@@ -1916,7 +1906,7 @@ sub install {
     my ($self, $pkglist, $unpack) = @_;
 
     my $required = $self->compute_required ($pkglist);
-    
+
     $self->cache_packages ($required);
 
     $self->ve_dpkg ($unpack ? 'unpack' : 'install', @$required);
