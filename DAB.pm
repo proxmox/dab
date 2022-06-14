@@ -1126,7 +1126,7 @@ sub __parse_packages {
 
 	my $res = {};
 
-	while ($rec =~ s/^([^:]+):\s+(.*)\s*\n//) {
+	while ($rec =~ s/^([^:]+):\s+(.*?)\s*\n//) {
 	    $res->{lc $1} = $2;
 	}
 
