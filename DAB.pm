@@ -367,7 +367,7 @@ sub run_command {
     print $writer $input if defined $input;
     close $writer;
 
-    my $select = new IO::Select;
+    my $select = IO::Select->new();
     $select->add ($reader);
     $select->add ($error);
 
@@ -915,11 +915,11 @@ sub read_installed {
 
     my $pkgfilelist = "$rootdir/var/lib/dpkg/status";
     local $/ = '';
-    open (PKGLST, "<$pkgfilelist") or die "unable to open '$pkgfilelist' - $!";
+    open(my $PKGLST, '<', $pkgfilelist) or die "unable to open '$pkgfilelist' - $!";
 
     my $pkglist = {};
 
-    while (my $rec = <PKGLST>) {
+    while (my $rec = <$PKGLST>) {
 	chomp $rec;
 	$rec =~ s/\n\s+/ /g;
 	$rec .= "\n";
@@ -939,7 +939,7 @@ sub read_installed {
 	}
     }
 
-    close (PKGLST);    
+    close ($PKGLST);
 
     return $pkglist;
 }
@@ -1116,10 +1116,9 @@ sub __parse_packages {
     my ($pkginfo, $filename, $src) = @_;
 
     local $/ = '';
-    open (PKGLST, "<$filename") ||
-	die "unable to open '$filename'";
+    open(my $PKGLST, '<', $filename) or die "unable to open '$filename' - $!";
 
-    while (my $rec = <PKGLST>) {
+    while (my $rec = <$PKGLST>) {
 	$rec =~ s/\n\s+/ /g;
 	chomp $rec;
 	$rec .= "\n";
@@ -1148,7 +1147,7 @@ sub __parse_packages {
 	}
     }
 
-    close (PKGLST);    
+    close ($PKGLST);
 }
 
 sub pkginfo {
