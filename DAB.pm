@@ -1889,15 +1889,35 @@ sub task_php {
 
     my $memlimit = $opts->{memlimit};
     my $rootdir = $self->{rootfs};
+    my $suite = $self->{config}->{suite};
 
-    my $required = $self->compute_required([qw(php php-cli libapache2-mod-php php-gd)]);
+    my $base_set = [qw(php-cli libapache2-mod-php php-gd)];
+    if ($suite =~ /(?:squeeze|wheezy|jessie)$/) {
+	$self->logmsg("WARN: using EOL php release on EOL suite");
+	$base_set = [qw(php5 php5-cli libapache2-mod-php5 php5-gd)];
+    }
+    my $required = $self->compute_required($base_set);
 
     $self->cache_packages ($required);
 
     $self->ve_dpkg ('install', @$required);
 
     if ($memlimit) {
-	$self->run_command ("sed -e 's/^\\s*memory_limit\\s*=.*;/memory_limit = ${memlimit}M;/' -i $rootdir/etc/php5/apache2/php.ini");
+	my $sed_cmd = ['sed', '-e', "s/^\\s*memory_limit\\s*=.*;/memory_limit = ${memlimit}M;/", '-i'];
+	if ($suite =~ /(?:squeeze|wheezy|jessie)$/) {
+	    push @$sed_cmd, "$rootdir/etc/php5/apache2/php.ini";
+	} else {
+	    my $found = 0;
+	    for my $fn (glob("'${rootdir}/etc/php/*/apache2/php.ini'")) {
+		push @$sed_cmd, "$rootdir/$fn";
+		$found = 1;
+	    }
+	    if (!$found) {
+		warn "WARN: did not found any php.ini to set the memlimit!\n";
+		return;
+	    }
+	}
+	$self->run_command($sed_cmd);
     }
 }
 
