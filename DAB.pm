@@ -525,24 +525,18 @@ sub new {
     my ($class, $config) = @_;
 
     $class = ref ($class) || $class;
-
-    my $self = {};
-
     $config = read_config ('dab.conf') if !$config;
 
-    $self->{config} = $config;
-
+    my $self = {
+	config => $config,
+    };
     bless $self, $class;
 
     $self->{logfile} = "logfile";
-    $self->{logfd} = IO::File->new (">>$self->{logfile}") ||
-	die "unable to open log file";
+    $self->{logfd} = IO::File->new (">>$self->{logfile}") || die "unable to open log file";
 
-    my $arch = $config->{architecture};
-    die "no 'architecture' specified\n" if !$arch;
-
-    die "unsupported architecture '$arch'\n" 
-	if $arch !~ m/^(i386|amd64)$/;
+    my $arch = $config->{architecture} ||die "no 'architecture' specified\n";
+    die "unsupported architecture '$arch'\n" if $arch !~ m/^(i386|amd64)$/;
 
     my $suite = $config->{suite} || die "no 'suite' specified\n";
 
@@ -551,21 +545,18 @@ sub new {
     $config->{ostype} = $suiteinfo->{ostype};
 
     my $name = $config->{name} || die "no 'name' specified\n";
+    $name =~ m/^[a-z][0-9a-z\-\*\.]+$/ || die "illegal characters in name '$name'\n";
 
-    $name =~ m/^[a-z][0-9a-z\-\*\.]+$/ || 
-	die "illegal characters in name '$name'\n";
-
+    # assert required dab.conf keys exist
+    for my $key (qw(version section headline maintainer)) {
+	die "no '$key' specified\n" if !$config->{$key};
+    }
     my $version = $config->{version};
-    die "no 'version' specified\n" if !$version;
-    die "no 'section' specified\n" if !$config->{section};
-    die "no 'description' specified\n" if !$config->{headline};
-    die "no 'maintainer' specified\n" if !$config->{maintainer};
 
     if ($name =~ m/^$config->{ostype}/) {
 	$self->{targetname} = "${name}_${version}_$config->{architecture}";
     } else {
-	$self->{targetname} = "$config->{ostype}-${name}_" .
-	    "${version}_$config->{architecture}";
+	$self->{targetname} = "$config->{ostype}-${name}_${version}_$config->{architecture}";
     }
 
     if (!$config->{source}) {
@@ -640,9 +631,7 @@ sub new {
 	    die "syntax error in mirror spezification '$m'\n";
 	}
     }
-
     $self->{sources} = $sources;
-
     $self->{infodir} = "info";
 
     $self->__allocate_ve();
@@ -650,12 +639,9 @@ sub new {
     $self->{cachedir} = ($config->{cachedir} || 'cache')  . "/$suite";;
 
     my $incl = [qw (less ssh openssh-server logrotate)];
-
     my $excl = [qw (modutils reiserfsprogs ppp pppconfig pppoe pppoeconf nfs-common mtools ntp)];
 
-    # ubuntu has too many dependencies on udev, so
-    # we cannot exclude it (instead we disable udevd)
-
+    # ubuntu has too many dependencies on udev, so we cannot exclude it (instead we disable udevd)
     if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{flags}->{systemd}) {
 	push @$incl, 'isc-dhcp-client';
 	push @$excl, qw(libmodule-build-perl libdrm-common libdrm2 libplymouth5 plymouth plymouth-theme-ubuntu-text powermgmt-base);
