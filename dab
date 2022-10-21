@@ -16,6 +16,7 @@ my $commands = {
     'veid' => '',
     'basedir' => '',
     'packagefile' => '',
+    'targetname' => '',
     'list' => '[--verbose]',
     'task' => '<postgres|mysql|php> [--version] [--password] [--memlimit]',
     'install' => '<package or *.pkglist file> ...',
@@ -109,10 +110,13 @@ eval {
 	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
 
 	print $dab->{rootfs} . "\n";
+    } elsif ($cmd eq 'targetname') {
+	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
+	print $dab->{targetname} . "\n";
 
     } elsif ($cmd eq 'packagefile') {
 	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
-
+	# FIXME: either drop this or make it compressor aware, not all end with .gz...
 	print "$dab->{targetname}.tar.gz\n";
 
     } elsif ($cmd eq 'list') {
