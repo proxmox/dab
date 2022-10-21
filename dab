@@ -64,7 +64,7 @@ if (!$cmd) {
 }
 
 my $dab;
-sub dab() {
+sub dab :prototype() { # make it a directly as `dab->foo()` callable singleton
     $dab = PVE::DAB->new() if !$dab;
     return $dab;
 }
