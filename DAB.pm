@@ -566,7 +566,7 @@ sub new {
 		    'http://ftp.debian.org/debian SUITE main contrib',
 		    'http://security.debian.org SUITE/updates main contrib',
 		);
-	    } elsif ($suite eq 'bullseye' || $suite eq 'bookworm') {
+	    } elsif ($suite =~ /^(?:bullseye|bookworm|trixie|forky)$/) {
 		push @{$config->{source}}, (
 		    "http://deb.debian.org/debian SUITE main contrib",
 		    "http://deb.debian.org/debian SUITE-updates main contrib",
