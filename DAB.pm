@@ -220,6 +220,10 @@ my $supported_suites = {
 	ostype => "ubuntu-22.04",
 	origin => 'ubuntu',
     },
+    'kinetic' => {
+	ostype => "ubuntu-22.10",
+	origin => 'ubuntu',
+    },
 };
 
 sub get_suite_info {
