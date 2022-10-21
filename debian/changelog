@@ -1,3 +1,14 @@
+dab (3.4.3) stable; urgency=medium
+
+  * debian bullseye & bookworm: switch default apt repos over to deb.debian.org
+
+  * debian: somewhat future proof mirror selection for trixie and forky
+
+  * add `targetname` command for an compressor independent base name of the
+    generated archive
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 21 Oct 2022 15:30:39 +0200
+
 dab (3.4.2) stable; urgency=medium
 
   * read packages: do not be greedy when matching package status value
