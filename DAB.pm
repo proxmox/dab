@@ -598,7 +598,7 @@ sub new {
     my $sources = undef;
 
     foreach my $s (@{$config->{source}}) {
-	if ($s =~ m@^\s*((http|ftp)://\S+)\s+(\S+)((\s+(\S+))+)$@) {
+	if ($s =~ m@^\s*((https?|ftp)://\S+)\s+(\S+)((\s+(\S+))+)$@) {
 	    my ($url, $su, $components) = ($1, $3, $4);
 	    $su =~ s/SUITE/$suite/;
 	    $components =~ s/^\s+//; 
@@ -620,7 +620,7 @@ sub new {
     }
 
     foreach my $m (@{$config->{mirror}}) {
-	if ($m =~ m@^\s*((http|ftp)://\S+)\s*=>\s*((http|ftp)://\S+)\s*$@) {
+	if ($m =~ m@^\s*((https?|ftp)://\S+)\s*=>\s*((https?|ftp)://\S+)\s*$@) {
 	    my ($ms, $md) = ($1, $3);
 	    my $found;
 	    foreach my $ss (@$sources) {
