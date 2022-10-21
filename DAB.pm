@@ -521,6 +521,18 @@ sub setup_usr_merge {
     }
 }
 
+sub get_target_name {
+    my ($config) = @_;
+
+    my $name = $config->{name} || die "no 'name' specified\n";
+    $name =~ m/^[a-z][0-9a-z\-\*\.]+$/ || die "illegal characters in name '$name'\n";
+
+    my ($version, $arch, $ostype) = $config->@{'version', 'architecture', 'ostype'};
+    $name = "${ostype}-${name}" if $name !~ m/^$ostype/;
+
+    return "${name}_${version}_${arch}"
+}
+
 sub new {
     my ($class, $config) = @_;
 
@@ -535,7 +547,7 @@ sub new {
     $self->{logfile} = "logfile";
     $self->{logfd} = IO::File->new (">>$self->{logfile}") || die "unable to open log file";
 
-    my $arch = $config->{architecture} ||die "no 'architecture' specified\n";
+    my $arch = $config->{architecture} || die "no 'architecture' specified\n";
     die "unsupported architecture '$arch'\n" if $arch !~ m/^(i386|amd64)$/;
 
     my $suite = $config->{suite} || die "no 'suite' specified\n";
@@ -544,20 +556,12 @@ sub new {
     $suite = $suiteinfo->{suite};
     $config->{ostype} = $suiteinfo->{ostype};
 
-    my $name = $config->{name} || die "no 'name' specified\n";
-    $name =~ m/^[a-z][0-9a-z\-\*\.]+$/ || die "illegal characters in name '$name'\n";
-
     # assert required dab.conf keys exist
     for my $key (qw(version section headline maintainer)) {
 	die "no '$key' specified\n" if !$config->{$key};
     }
-    my $version = $config->{version};
 
-    if ($name =~ m/^$config->{ostype}/) {
-	$self->{targetname} = "${name}_${version}_$config->{architecture}";
-    } else {
-	$self->{targetname} = "$config->{ostype}-${name}_${version}_$config->{architecture}";
-    }
+    $self->{targetname} = get_target_name($config);
 
     if (!$config->{source}) {
 	if (lc($suiteinfo->{origin}) eq 'debian') {
