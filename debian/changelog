@@ -1,3 +1,14 @@
+dab (3.4.2) stable; urgency=medium
+
+  * read packages: do not be greedy when matching package status value
+    to avoid triggering an internal error on trailing whitespace
+  * add support for Ubuntu 22.10 Kinetic Kudu
+  * php task: try to restore compat with very old releases using php5
+    again
+  * ubuntu: exclude libdrm* and libplymouth* from the base set
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 21 Oct 2022 07:07:48 +0200
+
 dab (3.4.1) stable; urgency=medium
 
   * ubuntu: support future 22.04 jammy release
