@@ -869,9 +869,9 @@ sub finalize {
     my $compressor2cmd_map = {
 	gz => 'gzip',
 	gzip => 'gzip',
-	zst => 'zstd -9',
-	zstd => 'zstd -9',
-	'zstd-max' => 'zstd -19 -T0', # maximal level where the decompressor can still run efficiently
+	zst => 'zstd --rm -9',
+	zstd => 'zstd --rm -9',
+	'zstd-max' => 'zstd --rm -19 -T0', # maximal level where the decompressor can still run efficiently
     };
     my $compressor2ending = {
 	gzip => 'gz',
