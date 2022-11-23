@@ -876,11 +876,15 @@ sub finalize {
 	zst => 'zstd --rm -9',
 	zstd => 'zstd --rm -9',
 	'zstd-max' => 'zstd --rm -19 -T0', # maximal level where the decompressor can still run efficiently
+	'pigz-fast' => 'pigz -1',
+	'pigz' => 'pigz',
     };
     my $compressor2ending = {
 	gzip => 'gz',
 	zstd => 'zst',
 	'zstd-max' => 'zst',
+	'pigz-fast' => 'gz',
+	'pigz' => 'gz',
     };
     my $compressor_cmd = $compressor2cmd_map->{$compressor};
     die "unkown compressor '$compressor', use one of: ". join(', ', sort keys %$compressor2cmd_map)
