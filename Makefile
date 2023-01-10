@@ -34,12 +34,12 @@ all:
 dinstall: deb
 	dpkg -i ${DEB}
 
-test: DAB.pm dab
-	perl -wc dab
-	perl -wc DAB.pm
+test: PVE/DAB.pm dab
+	perl -I . -wc dab
+	perl -wc PVE/DAB.pm
 
 .PHONY: install
-install: dab dab.1 dab.1.pod DAB.pm devices.tar.gz ${SCRIPTS}
+install: dab dab.1 dab.1.pod PVE/DAB.pm devices.tar.gz ${SCRIPTS}
 	install -d ${SBINDIR}
 	install -m 0755 dab ${SBINDIR}
 	install -d ${MAN1DIR}
@@ -47,7 +47,7 @@ install: dab dab.1 dab.1.pod DAB.pm devices.tar.gz ${SCRIPTS}
 	gzip -n -f9 ${MAN1DIR}/dab.1
 	install -d ${PODDIR}
 	install -m 0644 dab.1.pod ${PODDIR}
-	install -D -m 0644 DAB.pm ${PERLDIR}/PVE/DAB.pm
+	install -D -m 0644 PVE/DAB.pm ${PERLDIR}/PVE/DAB.pm
 	install -d ${DATADIR}/scripts
 	install -m 0755 ${SCRIPTS} ${DATADIR}/scripts
 	install -m 0644 devices.tar.gz ${DATADIR}
