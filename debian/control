@@ -5,7 +5,7 @@ Maintainer: Proxmox Support Team <support@proxmox.com>
 Build-Depends: debhelper-compat (= 13),
                libuuid-perl,
                perl,
-Standards-Version: 3.9.8
+Standards-Version: 4.6.2
 
 Package: dab
 Architecture: all
