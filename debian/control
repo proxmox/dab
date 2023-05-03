@@ -2,7 +2,7 @@ Source: dab
 Section: admin
 Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
-Build-Depends: debhelper (>= 10~),
+Build-Depends: debhelper-compat (= 13),
                libuuid-perl,
                perl,
 Standards-Version: 3.9.8
