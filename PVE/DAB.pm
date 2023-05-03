@@ -225,6 +225,14 @@ my $supported_suites = {
 	ostype => "ubuntu-22.10",
 	origin => 'ubuntu',
     },
+    'lunar' => {
+	ostype => "ubuntu-23.04",
+	origin => 'ubuntu',
+    },
+    'mantic' => {
+	ostype => "ubuntu-23.10",
+	origin => 'ubuntu',
+    },
 };
 
 sub get_suite_info {
