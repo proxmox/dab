@@ -1535,7 +1535,7 @@ sub bootstrap {
     }
 
     # setup devices
-    $self->run_command ("tar xzf '$devicetar' -C '$rootdir'");
+    $self->run_command ("tar xzf '$devicetar' -C '$rootdir'") if $opts->{'device-skelleton'};
 
     # avoid warnings about missing default locale
     write_file ("LANG=\"C\"\n", "$rootdir/etc/default/locale", 0644);

@@ -11,7 +11,7 @@ $ENV{'LC_ALL'} = 'C';
 
 my $commands = {
     'init' => '',
-    'bootstrap' => '[--exim] [--include <a[,b..]]>] --exclude [<a[,b..]]>] [--minimal]',
+    'bootstrap' => '[--exim] [--include <a[,b..]]>] --exclude [<a[,b..]]>] [--minimal] [--device-skelleton]',
     'finalize' => '[--keepmycnf] [--compressor <gz[ip] (default)|zst[d]|zstd-max>]',
     'veid' => '',
     'basedir' => '',
@@ -84,7 +84,7 @@ eval {
 
     } elsif ($cmd eq 'bootstrap') {
 	my $opts = {};
-	if (!GetOptions ($opts, 'exim', 'minimal', 'include=s', 'exclude=s')) {
+	if (!GetOptions ($opts, 'exim', 'minimal', 'device-skelleton', 'include=s', 'exclude=s')) {
 	    fatal_usage();
 	}
 	die "command 'bootstrap' expects no arguments.\n" if scalar (@ARGV) != 0;
