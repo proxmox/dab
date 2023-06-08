@@ -311,14 +311,20 @@ sub __sample_config {
 
     if ($ostype =~ m/^de(bi|vu)an-/) {
 	$data .= "lxc.include = /usr/share/lxc/config/debian.common.conf\n";
+	$data .= "lxc.include = /usr/share/lxc/config/debian.userns.conf\n" if $> != 0;
     } elsif ($ostype =~ m/^ubuntu-/) {
 	$data .= "lxc.include = /usr/share/lxc/config/ubuntu.common.conf\n";
+	$data .= "lxc.include = /usr/share/lxc/config/ubuntu.userns.conf\n" if $> != 0;
     } else {
 	die "unknown os type '$ostype'\n";
     }
+    if ($> != 0) {
+	$data .= "lxc.idmap = u 0 100000 65536\n";
+	$data .= "lxc.idmap = g 0 100000 65536\n";
+    }
     $data .= "lxc.uts.name = localhost\n";
     $data .= "lxc.rootfs.path = $self->{rootfs}\n";
-    
+
     return $data;
 }
 
