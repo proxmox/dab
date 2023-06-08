@@ -72,49 +72,8 @@ my $supported_suites = {
     'buster' => {
 	ostype => "debian-10",
     },
-    'stretch' => {
-	ostype => "debian-9.0",
-    },
-    'jessie' => {
-	ostype => "debian-8.0",
-    },
-    'wheezy' => {
-	flags => {
-	    systemd => 0,
-	},
-	ostype => "debian-7.0",
-    },
-    'squeeze' => {
-	flags => {
-	    systemd => 0,
-	},
-	ostype => "debian-6.0",
-    },
-    'lenny' => {
-	flags => {
-	    systemd => 0,
-	},
-	ostype => "debian-5.0",
-    },
-    'etch' => {
-	flags => {
-	    systemd => 0,
-	},
-	ostype => "debian-4.0",
-    },
 
 # DEVUAN (imply systemd = 0 default)
-    'devuan-jessie' => {
-	suite => 'jessie',
-	ostype => "devuan-1.0",
-    },
-    'devuan-ascii' => {
-	suite => 'ascii',
-	ostype => "devuan-2.0",
-    },
-    'ascii' => {
-	ostype => "devuan-2.0",
-    },
     'beowulf' => {
 	ostype => "devuan-3.0",
     },
@@ -126,95 +85,12 @@ my $supported_suites = {
     },
 
 # UBUNTU
-    'hardy' => {
-	flags => {
-	    systemd => 0,
-	},
-	ostype => "ubuntu-8.04",
-	origin => 'ubuntu',
-    },
-    'intrepid' => {
-	flags => {
-	    systemd => 0,
-	},
-	ostype => "ubuntu-8.10",
-	origin => 'ubuntu',
-    },
-    'jaunty' => {
-	flags => {
-	    systemd => 0,
-	},
-	ostype => "ubuntu-9.04",
-	origin => 'ubuntu',
-    },
-    'precise' => {
-	flags => {
-	    systemd => 0,
-	},
-	ostype => "ubuntu-12.04",
-	origin => 'ubuntu',
-    },
-    'trusty' => {
-	flags => {
-	    systemd => 0,
-	},
-	ostype => "ubuntu-14.04",
-	origin => 'ubuntu',
-    },
-    'vivid' => {
-	ostype => "ubuntu-15.04",
-	origin => 'ubuntu',
-    },
-    'wily' => {
-	ostype => "ubuntu-15.10",
-	origin => 'ubuntu',
-    },
-    'xenial' => {
-	ostype => "ubuntu-16.04",
-	origin => 'ubuntu',
-    },
-    'yakkety' => {
-	ostype => "ubuntu-16.10",
-	origin => 'ubuntu',
-    },
-    'zesty' => {
-	ostype => "ubuntu-17.04",
-	origin => 'ubuntu',
-    },
-    'artful' => {
-	ostype => "ubuntu-17.10",
-	origin => 'ubuntu',
-    },
     'bionic' => {
 	ostype => "ubuntu-18.04",
 	origin => 'ubuntu',
     },
-    'cosmic' => {
-	ostype => "ubuntu-18.10",
-	origin => 'ubuntu',
-    },
-    'disco' => {
-	ostype => "ubuntu-19.04",
-	origin => 'ubuntu',
-    },
-    'eoan' => {
-	ostype => "ubuntu-19.10",
-	origin => 'ubuntu',
-    },
     'focal' => {
 	ostype => "ubuntu-20.04",
-	origin => 'ubuntu',
-    },
-    'groovy' => {
-	ostype => "ubuntu-20.10",
-	origin => 'ubuntu',
-    },
-    'hirsute' => {
-	ostype => "ubuntu-21.04",
-	origin => 'ubuntu',
-    },
-    'impish' => {
-	ostype => "ubuntu-21.10",
 	origin => 'ubuntu',
     },
     'jammy' => {
@@ -661,21 +537,7 @@ sub new {
 	if ($suite eq 'jammy') {
 	    push @$excl, qw(fuse); # avoid fuse2 <-> fuse3 conflict
 	}
-    } elsif ($suite eq 'trusty') {
-	push @$excl, qw(systemd systemd-services libpam-systemd libsystemd-daemon0 memtest86+);
-   } elsif ($suite eq 'precise') {
-	push @$excl, qw(systemd systemd-services libpam-systemd libsystemd-daemon0 memtest86+ ubuntu-standard);
-    } elsif ($suite eq 'hardy') {
-	push @$excl, qw(kbd);
-	push @$excl, qw(apparmor apparmor-utils ntfs-3g friendly-recovery);
-    } elsif ($suite eq 'intrepid' || $suite eq 'jaunty') {
-	push @$excl, qw(apparmor apparmor-utils libapparmor1 libapparmor-perl libntfs-3g28);
-	push @$excl, qw(ntfs-3g friendly-recovery);
-    } elsif ($suite eq 'jessie') {
-	push @$incl, 'sysvinit-core'; # avoid systemd and udev
-	push @$incl, 'libperl4-corelibs-perl'; # to make lsof happy
-	push @$excl, qw(systemd systemd-sysv udev module-init-tools pciutils hdparm memtest86+ parted);
-    } elsif ($suite eq 'stretch' || $suite eq 'buster' || $suite eq 'bullseye' || $suite eq 'bookworm') {
+    } elsif ($suite eq 'buster' || $suite eq 'bullseye' || $suite eq 'bookworm') {
 	push @$excl, qw(module-init-tools pciutils hdparm memtest86+ parted);
      } else {
 	push @$excl, qw(udev module-init-tools pciutils hdparm memtest86+ parted);
@@ -1746,30 +1608,14 @@ sub ve_mysql_command {
     #my $bootstrap = "/usr/sbin/mysqld --bootstrap --user=mysql --skip-grant-tables " .
     #"--skip-bdb  --skip-innodb --skip-ndbcluster";
 
-    $self->ve_command ("mysql", $sql);
+    $self->ve_command("mysql", $sql);
 }
 
 sub ve_mysql_bootstrap {
     my ($self, $sql, $password) = @_;
 
-    my $cmd;
-
-    my $suite = $self->{config}->{suite};
-
-    if ($suite eq 'jessie') {
-	my $rootdir = $self->{rootfs};
-	$self->run_command ("sed -e 's/^key_buffer\\s*=/key_buffer_size =/' -i $rootdir/etc/mysql/my.cnf");
-    }
-
-    if ($suite eq 'squeeze' || $suite eq 'wheezy' || $suite eq 'jessie') {
-	$cmd = "/usr/sbin/mysqld --bootstrap --user=mysql --skip-grant-tables";
-
-    } else {
-	$cmd = "/usr/sbin/mysqld --bootstrap --user=mysql --skip-grant-tables " .
-	    "--skip-bdb  --skip-innodb --skip-ndbcluster";
-    }
-
-    $self->ve_command ($cmd, $sql);
+    my $cmd = "/usr/sbin/mysqld --bootstrap --user=mysql --skip-grant-tables --skip-bdb  --skip-innodb --skip-ndbcluster";
+    $self->ve_command($cmd, $sql);
 }
 
 sub compute_required {
@@ -1792,29 +1638,13 @@ sub task_postgres {
 
     my $suite = $self->{config}->{suite};
 
-    if ($suite eq 'lenny' || $suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty') {
-	@supp = ('8.3');
-	$pgversion = '8.3';
-    } elsif ($suite eq 'squeeze') {
-	@supp = ('8.4');
-	$pgversion = '8.4';
-    } elsif ($suite eq 'wheezy') {
-	@supp = ('9.1');
-	$pgversion = '9.1';
-    } elsif ($suite eq 'jessie') {
-	@supp = ('9.4');
-	$pgversion = '9.4';
-    } elsif ($suite eq 'stretch') {
-	@supp = ('9.6');
-	$pgversion = '9.6';
-    } elsif ($suite eq 'buster') {
+    if ($suite eq 'buster') {
 	@supp = ('11');
 	$pgversion = '11';
     } elsif ($suite eq 'bullseye') {
 	@supp = ('13');
     } elsif ($suite eq 'bookworm') {
-	# FIXME: update once froozen
-	@supp = ('13', '14');
+	@supp = ('15');
     }
     $pgversion = $opts->{version} if $opts->{version};
 
@@ -1832,11 +1662,6 @@ sub task_postgres {
     $self->ve_dpkg ('install', @$required);
 
     my $iscript = "postgresql-$pgversion";
-    if ($suite eq 'squeeze' || $suite eq 'wheezy' || $suite eq 'jessie' ||
-	$suite eq 'stretch') {
-	$iscript = 'postgresql';
-    }
-
     $self->ve_command ("/etc/init.d/$iscript start") if $opts->{start};
 }
 
@@ -1848,19 +1673,10 @@ sub task_mysql {
 
     my $suite = $self->{config}->{suite};
 
-    my $ver = '5.0';
-    if ($suite eq 'squeeze') {
-      $ver = '5.1';
-    } elsif ($suite eq 'wheezy' || $suite eq 'jessie') {
-      $ver = '5.5';
-    } else {
-	die "task_mysql: unsupported suite '$suite'";
-    }
+    my $required = $self->compute_required(['mariadb-server']);
 
-    my $required = $self->compute_required (['mysql-common', "mysql-server-$ver"]);
+    $self->cache_packages($required);
 
-    $self->cache_packages ($required);
- 
     $self->ve_dpkg ('install', @$required);
 
     # fix security (see /usr/bin/mysql_secure_installation)
@@ -1884,7 +1700,7 @@ sub task_mysql {
 	}
     }
 
-    $self->ve_command ("/etc/init.d/mysql start") if $opts->{start};
+    $self->ve_command("/etc/init.d/mysql start") if $opts->{start}; # FIXME: use systemd service?!
 }
 
 sub task_php {
@@ -1895,10 +1711,6 @@ sub task_php {
     my $suite = $self->{config}->{suite};
 
     my $base_set = [qw(php-cli libapache2-mod-php php-gd)];
-    if ($suite =~ /(?:squeeze|wheezy|jessie)$/) {
-	$self->logmsg("WARN: using EOL php release on EOL suite");
-	$base_set = [qw(php5 php5-cli libapache2-mod-php5 php5-gd)];
-    }
     my $required = $self->compute_required($base_set);
 
     $self->cache_packages ($required);
@@ -1907,18 +1719,14 @@ sub task_php {
 
     if ($memlimit) {
 	my $sed_cmd = ['sed', '-e', "s/^\\s*memory_limit\\s*=.*;/memory_limit = ${memlimit}M;/", '-i'];
-	if ($suite =~ /(?:squeeze|wheezy|jessie)$/) {
-	    push @$sed_cmd, "$rootdir/etc/php5/apache2/php.ini";
-	} else {
-	    my $found = 0;
-	    for my $fn (glob("'${rootdir}/etc/php/*/apache2/php.ini'")) {
-		push @$sed_cmd, "$rootdir/$fn";
-		$found = 1;
-	    }
-	    if (!$found) {
-		warn "WARN: did not found any php.ini to set the memlimit!\n";
-		return;
-	    }
+	my $found = 0;
+	for my $fn (glob("'${rootdir}/etc/php/*/apache2/php.ini'")) {
+	    push @$sed_cmd, "$rootdir/$fn";
+	    $found = 1;
+	}
+	if (!$found) {
+	    warn "WARN: did not found any php.ini to set the memlimit!\n";
+	    return;
 	}
 	$self->run_command($sed_cmd);
     }
