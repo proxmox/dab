@@ -177,6 +177,11 @@ sub read_file {
     return $data;
 }
 
+sub symln {
+    my ($a, $b) = @_;
+    symlink($a, $b) or die "failed to symlink $a => $b: $!";
+}
+
 sub read_config {
     my ($filename) = @_;
 
@@ -1260,6 +1265,13 @@ sub install_init_script {
     return $target;
 }
 
+sub mask_systemd_unit {
+    my ($self, $unit) = @_;
+
+    my $root = $self->{rootfs};
+    symln('/dev/null', "$root/etc/systemd/system/$unit");
+}
+
 sub bootstrap {
     my ($self, $opts) = @_;
 
@@ -1583,8 +1595,11 @@ EOD
 	$self->run_command ("rm $filelist");
     }
 
-    if (-e "$rootdir/lib/systemd/system/sys-kernel-config.mount") {
-	$self->ve_command ("ln -s /dev/null /etc/systemd/system/sys-kernel-debug.mount");
+    if ($suiteinfo->{flags}->{systemd}) {
+	for my $unit (qw(sys-kernel-config.mount sys-kernel-debug.mount systemd-journald-audit.socket)) {
+	    $self->logmsg("Masking problematic systemd unit '$unit'\n");
+	    $self->mask_systemd_unit($unit);
+	}
     }
 }
 
