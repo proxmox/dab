@@ -1,3 +1,20 @@
+dab (3.5.1) stable; urgency=medium
+
+  * make extracting tar archive for /dev opt-in, this is handled through the
+    PCT/LXC runtime
+
+  * deprecate old releases that either won't work under modern systemd or are
+    EOL since many years
+
+  * preliminary experimental support for running DAB as unprivileged user
+
+  * bootstrap: mask more systemd units that fail in containers like
+    sys-kernel-debug.mount or systemd-journald-audit.socket
+
+  * add support for building Ubuntu 24.04 Noble appliances
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 02 May 2024 14:53:55 +0200
+
 dab (3.5.0) stable; urgency=medium
 
   * add preliminary support for Ubuntu Lunar 23.04 and Ubuntu Mantic
