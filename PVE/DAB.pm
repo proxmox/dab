@@ -109,6 +109,10 @@ my $supported_suites = {
 	ostype => "ubuntu-23.10",
 	origin => 'ubuntu',
     },
+    'noble' => {
+	ostype => "ubuntu-24.04",
+	origin => 'ubuntu',
+    },
 };
 
 sub get_suite_info {
