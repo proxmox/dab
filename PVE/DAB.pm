@@ -684,12 +684,10 @@ sub finalize {
 	}
     }
     $self->logmsg ("cleanup package status\n");
-    # prevent auto selection of all standard, required or important 
-    # packages which are not installed
+    # prevent auto selection of all standard, required, or important packages which are not installed
     foreach my $pkg (keys %$pkginfo) {
 	my $pri = $pkginfo->{$pkg}->{priority};
-	if ($pri && ($pri eq 'required' || $pri eq 'important' 
-		     || $pri eq 'standard')) {
+	if ($pri && ($pri eq 'required' || $pri eq 'important' || $pri eq 'standard')) {
 	    if (!$instpkgs->{$pkg}) {
 		$self->ve_dpkg_set_selection ($pkg, 'purge');
 	    }
@@ -708,8 +706,7 @@ sub finalize {
 	    $self->run_command ("cp '$infodir/$relsrc.gpg' '$rootdir/var/lib/apt/lists/$relsrc.gpg'");
 	}
 	foreach my $comp (@{$ss->{comp}}) {
-	    my $src = __url_to_filename ("$ss->{source}/dists/$ss->{suite}/" .
-					 "$comp/binary-$arch/Packages");
+	    my $src = __url_to_filename("$ss->{source}/dists/$ss->{suite}/${comp}/binary-${arch}/Packages");
 	    my $target = "/var/lib/apt/lists/$src";
 	    $self->run_command ("cp '$infodir/$src' '$rootdir/$target'");
 	    $self->ve_command ("dpkg --merge-avail '$target'");
@@ -723,7 +720,7 @@ sub finalize {
 
     $self->ve_divert_remove ("/sbin/start-stop-daemon"); 
 
-    $self->ve_divert_remove ("/sbin/init"); 
+    $self->ve_divert_remove ("/sbin/init");
 
     # finally stop the VE
     $self->run_command ("lxc-stop -n $veid --rcfile $conffile --kill");
@@ -890,8 +887,7 @@ sub ve_exec {
 sub ve_divert_add {
     my ($self, $filename) = @_;
 
-    $self->ve_command ("dpkg-divert --add --divert '$filename.distrib' " .
-		       "--rename '$filename'");
+    $self->ve_command("dpkg-divert --add --divert '$filename.distrib' --rename '$filename'");
 }
 sub ve_divert_remove {
     my ($self, $filename) = @_;
@@ -1449,7 +1445,7 @@ sub bootstrap {
     $self->ve_dpkg ('install', 'dpkg');
 
     $self->run_command ("ln -sf /usr/share/zoneinfo/UTC '$rootdir/etc/localtime'");
-    
+
     $self->run_command ("ln -sf bash '$rootdir/bin/sh'");
 
     $self->ve_dpkg ('install', 'libc6');
