@@ -1288,6 +1288,11 @@ sub bootstrap {
     my $required;
     my $standard;
 
+    # some releases do not have the init metapackage in the rquired set anymore, but DAB assumes
+    # that, so explicitly add systemd-sysv, which provides the /sbin/init symlink to systemd.
+    my $add_systemd_sysv_as_required = $suiteinfo->{flags}->{systemd};
+    push @$required, 'systemd-sysv' if $add_systemd_sysv_as_required;
+
     my $mta = $opts->{exim} ? 'exim' : 'postfix';
     if ($mta eq 'postfix') {
 	push @$important, "postfix";
