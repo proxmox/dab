@@ -1430,7 +1430,8 @@ sub bootstrap {
     write_file ("LANG=\"C\"\n", "$rootdir/etc/default/locale", 0644);
 
     # fake init
-    rename ("$rootdir/sbin/init", "$rootdir/sbin/init.org");
+    rename ("$rootdir/sbin/init", "$rootdir/sbin/init.org")
+        or die "failed to backup distro 'init' for manual diversion - $!";
     $self->run_command ("cp '$fake_init' '$rootdir/sbin/init'");
 
     $self->run_command ("cp '$default_env' '$rootdir/sbin/defenv'");
@@ -1464,7 +1465,8 @@ sub bootstrap {
 	$self->ve_dpkg ('unpack', $p);
     }
 
-    rename ("$rootdir/sbin/init.org", "$rootdir/sbin/init");
+    rename ("$rootdir/sbin/init.org", "$rootdir/sbin/init")
+	or die "failed to restore distro 'init' for actual diversion - $!";
     $self->ve_divert_add ("/sbin/init");
     $self->run_command ("cp '$fake_init' '$rootdir/sbin/init'");
 
