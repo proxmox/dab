@@ -1,3 +1,13 @@
+dab (3.5.2) stable; urgency=medium
+
+  * explicitly add 'systemd-syv' to required packages set for all systemd
+    based releases to ensure the correct `/sbin/init` binary is shipped,
+    fixing support for building Ubuntu 24.04 images.
+
+  * bootstrap: die if init binary could not get diverted
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 07 May 2024 11:08:28 +0200
+
 dab (3.5.1) stable; urgency=medium
 
   * make extracting tar archive for /dev opt-in, this is handled through the
