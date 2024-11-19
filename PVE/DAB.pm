@@ -63,6 +63,9 @@ sub __url_to_filename {
 #  flags:
 #    systemd: true (except for devuan ostypes)
 my $supported_suites = {
+    'trixie' => {
+	ostype => "debian-13",
+    },
     'bookworm' => {
 	ostype => "debian-12",
     },
