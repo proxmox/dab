@@ -113,6 +113,14 @@ my $supported_suites = {
 	ostype => "ubuntu-24.04",
 	origin => 'ubuntu',
     },
+    'oracular' => {
+	ostype => "ubuntu-24.10",
+	origin => 'ubuntu',
+    },
+    'plucky' => {
+	ostype => "ubuntu-25.04",
+	origin => 'ubuntu',
+    },
 };
 
 sub get_suite_info {
