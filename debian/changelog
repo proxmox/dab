@@ -1,3 +1,13 @@
+dab (3.6.0) stable; urgency=medium
+
+  * add support to build Ubuntu 24.10 Oracular images.
+
+  * add initial support to build in-development Ubuntu 25.04 Plucky images.
+
+  * add initial support to build in-development Debian 13 Trixie images.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 19 Nov 2024 13:28:22 +0100
+
 dab (3.5.2) stable; urgency=medium
 
   * explicitly add 'systemd-syv' to required packages set for all systemd
