@@ -268,7 +268,7 @@ yourself.
 
 =item I<--exclude <a[,b..]]>
 
-A comma-separated list of packages to exlcude in bootstrap. Note that no
+A comma-separated list of packages to exclude in bootstrap. Note that no
 transitive dependency resolution is done for others to get excluded, you may
 need to specify those yourself.
 
@@ -501,11 +501,11 @@ then the email address inside angle brackets <> (in RFC822 format).
 
 =item B<Infopage:> I<URL>
 
-Link to web page containing more informations about this appliance.
+Link to web page containing more information about this appliance.
 
 =item B<Description:> I<single line synopsis>
 
-extended description over several lines (indended by space) may follow.
+extended description over several lines (intended by space) may follow.
 
 =back
 
@@ -517,7 +517,7 @@ All generated templates includes an appliance description file called
 
 this is the first file inside the tar archive. That way it can be easily
 exctracted without scanning the whole archive. The file itself contains
-informations like a debian C<control> file. It can be used to build appliance
+information like a debian C<control> file. It can be used to build appliance
 repositories.
 
 Most fields are directly copied from the configuration file C<dab.conf>.
