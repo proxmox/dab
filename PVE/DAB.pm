@@ -1580,13 +1580,16 @@ EOD
 	$self->ve_divert_add ("/sbin/klogd");
     }
 
-    # remove unnecessays sysctl entries to avoid warnings
-    my $cmd = 'sed';
+    my $cmd = 'find';
+    $cmd .= " '$rootdir/etc/sysctl.conf'" if -e "$rootdir/etc/sysctl.conf";
+    $cmd .= " '$rootdir/etc/sysctl.d/'" if -d "$rootdir/etc/sysctl.d";
+    $cmd .= ' -type f -iname \'*.conf\' -print0';
+    $cmd .= '| xargs -0 --no-run-if-empty -- sed';
     $cmd .= ' -e \'s/^\(kernel\.printk.*\)/#\1/\'';
     $cmd .= ' -e \'s/^\(kernel\.maps_protect.*\)/#\1/\'';
     $cmd .= ' -e \'s/^\(fs\.inotify\.max_user_watches.*\)/#\1/\'';
     $cmd .= ' -e \'s/^\(vm\.mmap_min_addr.*\)/#\1/\'';
-    $cmd .= " -i '$rootdir/etc/sysctl.conf'";
+    $cmd .= " -i";
     $self->run_command ($cmd);
 
     my $bindv6only = "$rootdir/etc/sysctl.d/bindv6only.conf";
