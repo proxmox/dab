@@ -63,17 +63,21 @@ sub __url_to_filename {
 #  systemd: true
 my $suite_defaults = {
     debian => {
+	keyring => '/usr/share/keyrings/debian-archive-keyring.gpg',
     },
     devuan => {
+	#keyring => '/usr/share/keyrings/devuan-archive-keyring.gpg', # TODO: verify
 	systemd => 0,
     },
     ubuntu => {
+	keyring => '/usr/share/keyrings/ubuntu-archive-keyring.gpg',
     },
 };
 
 my $supported_suites = {
     'trixie' => {
 	ostype => "debian-13",
+	modern_apt_sources => 1,
     },
     'bookworm' => {
 	ostype => "debian-12",
@@ -132,6 +136,7 @@ my $supported_suites = {
     'plucky' => {
 	ostype => "ubuntu-25.04",
 	origin => 'ubuntu',
+	modern_apt_sources => 1,
     },
 };
 
@@ -1399,13 +1404,37 @@ sub bootstrap {
     write_file ("", "$rootdir/var/lib/dpkg/available");
 
     $data = '';
-    foreach my $ss (@{$self->{sources}}) {
-	my $url = $ss->{source};
-	my $comp = join (' ', @{$ss->{comp}});
-	$data .= "deb $url $ss->{suite} $comp\n\n";
-    }
+    if ($suiteinfo->{modern_apt_sources}) {
+	mkdir "$rootdir/etc/apt/sources.list.d";
+	my $origin = lc($suiteinfo->{origin});
+	my $keyring = $suiteinfo->{keyring} or die "missing keyring for origin '$origin'";
+	my $uris = { map { $_->{source} => 1 } $self->{sources}->@* };
 
-    write_file ($data, "$rootdir/etc/apt/sources.list");
+	for my $uri (keys $uris->%*) {
+	    my $sources = [ grep { $_->{source} eq $uri } $self->{sources}->@* ];
+
+	    my $suites = join(' ', (map { $_->{suite} } $sources->@*));
+	    my $unique_components = { map { $_ => 1 } (map { $_->{comp}->@* } $sources->@*) };
+	    my $components = join(' ', (sort keys $unique_components->%*));
+
+	    $data .= "\n" if $data ne '';
+	    $data .= "Types: deb\n";
+	    $data .= "URIs: $uri\n";
+	    $data .= "Suites: $suites\n";
+	    $data .= "Components: $components\n";
+	    $data .= "Signed-By: $keyring\n";
+	}
+
+	write_file($data, "$rootdir/etc/apt/sources.list.d/${origin}.sources");
+    } else {
+	foreach my $ss (@{$self->{sources}}) {
+	    my $url = $ss->{source};
+	    my $comp = join (' ', @{$ss->{comp}});
+	    $data .= "deb $url $ss->{suite} $comp\n\n";
+	}
+
+	write_file ($data, "$rootdir/etc/apt/sources.list");
+    }
 
     $data = "# UNCONFIGURED FSTAB FOR BASE SYSTEM\n";
     write_file ($data, "$rootdir/etc/fstab", 0644);
