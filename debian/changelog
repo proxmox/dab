@@ -1,3 +1,23 @@
+dab (3.7.0) stable; urgency=medium
+
+  * make fixing up problematic sysctl settings generic to config file paths to
+    avoid errors on modern distro releases like Ubuntu 25.04 Plucky Puffin or
+    Debian 13 Trixie.
+
+  * remove some handling of long EOL and long-time unsupported ancient
+    releases.
+
+  * Drop Debian 10 Buster and Ubuntu 22.10, 23.04 and 23.10 from supported
+    releases, they are EOL upstream and their official apt mirrors are dead
+    anyway.
+
+  * add support to write out apt sources in modern deb822 format.
+
+  * Improve support for building Ubuntu 25.04 Plucky and Debian 13 Trixie
+    appliances.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 08 May 2025 21:52:20 +0200
+
 dab (3.6.0) stable; urgency=medium
 
   * add support to build Ubuntu 24.10 Oracular images.
