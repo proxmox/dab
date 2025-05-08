@@ -1694,6 +1694,8 @@ sub task_postgres {
 	@supp = ('13');
     } elsif ($suite eq 'bookworm') {
 	@supp = ('15');
+    } elsif ($suite eq 'trixie') {
+	@supp = ('16', '17');
     }
     $pgversion = $opts->{version} if $opts->{version};
 
