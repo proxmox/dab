@@ -58,10 +58,19 @@ sub __url_to_filename {
     return $url;
 }
 
-# defaults:
+# global defaults are:
 #  origin: debian
-#  flags:
-#    systemd: true (except for devuan ostypes)
+#  systemd: true
+my $suite_defaults = {
+    debian => {
+    },
+    devuan => {
+	systemd => 0,
+    },
+    ubuntu => {
+    },
+};
+
 my $supported_suites = {
     'trixie' => {
 	ostype => "debian-13",
@@ -133,14 +142,11 @@ sub get_suite_info {
 
     # set defaults
     $suiteinfo->{origin} //= 'debian';
-    $suiteinfo->{suite} //= $suite;
-
-    $suiteinfo->{flags} //= {};
-    if ($suiteinfo->{ostype} =~ /^devuan/) {
-	$suiteinfo->{systemd} //= 0;
-    } else {
-	$suiteinfo->{systemd} //= 1;
+    if (my $defaults = $suite_defaults->{$suiteinfo->{origin}}) {
+	$suiteinfo->{$_} //= $defaults->{$_} for keys $defaults->%*;
     }
+    $suiteinfo->{suite} //= $suite;
+    $suiteinfo->{systemd} //= 1;
 
     return $suiteinfo;
 }
