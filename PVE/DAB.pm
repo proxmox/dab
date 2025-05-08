@@ -85,9 +85,6 @@ my $supported_suites = {
     'bullseye' => {
 	ostype => "debian-11",
     },
-    'buster' => {
-	ostype => "debian-10",
-    },
 
 # DEVUAN (imply systemd = 0 default)
     'beowulf' => {
@@ -111,18 +108,6 @@ my $supported_suites = {
     },
     'jammy' => {
 	ostype => "ubuntu-22.04",
-	origin => 'ubuntu',
-    },
-    'kinetic' => {
-	ostype => "ubuntu-22.10",
-	origin => 'ubuntu',
-    },
-    'lunar' => {
-	ostype => "ubuntu-23.04",
-	origin => 'ubuntu',
-    },
-    'mantic' => {
-	ostype => "ubuntu-23.10",
 	origin => 'ubuntu',
     },
     'noble' => {
@@ -487,24 +472,11 @@ sub new {
 
     if (!$config->{source}) {
 	if (lc($suiteinfo->{origin}) eq 'debian') {
-	    if ($suite eq 'etch' || $suite eq 'lenny') {
-		push @{$config->{source}}, (
-		    'http://ftp.debian.org/debian SUITE main contrib',
-		    'http://security.debian.org SUITE/updates main contrib',
-		);
-	    } elsif ($suite =~ /^(?:bullseye|bookworm|trixie|forky)$/) {
-		push @{$config->{source}}, (
-		    "http://deb.debian.org/debian SUITE main contrib",
-		    "http://deb.debian.org/debian SUITE-updates main contrib",
-		    "http://security.debian.org SUITE-security main contrib",
-		);
-	    } else {
-		push @{$config->{source}}, (
-		    "http://ftp.debian.org/debian SUITE main contrib",
-		    "http://ftp.debian.org/debian SUITE-updates main contrib",
-		    "http://security.debian.org SUITE/updates main contrib",
-		);
-	    }
+	    push @{$config->{source}}, (
+		"http://deb.debian.org/debian SUITE main contrib",
+		"http://deb.debian.org/debian SUITE-updates main contrib",
+		"http://security.debian.org SUITE-security main contrib",
+	    );
 	} elsif (lc($suiteinfo->{origin}) eq 'ubuntu') {
 	    my $comp = "main restricted universe multiverse";
 	    push @{$config->{source}}, (
