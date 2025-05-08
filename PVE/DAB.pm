@@ -137,9 +137,9 @@ sub get_suite_info {
 
     $suiteinfo->{flags} //= {};
     if ($suiteinfo->{ostype} =~ /^devuan/) {
-	$suiteinfo->{flags}->{systemd} //= 0;
+	$suiteinfo->{systemd} //= 0;
     } else {
-	$suiteinfo->{flags}->{systemd} //= 1;
+	$suiteinfo->{systemd} //= 1;
     }
 
     return $suiteinfo;
@@ -557,7 +557,7 @@ sub new {
     my $excl = [qw (modutils reiserfsprogs ppp pppconfig pppoe pppoeconf nfs-common mtools ntp)];
 
     # ubuntu has too many dependencies on udev, so we cannot exclude it (instead we disable udevd)
-    if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{flags}->{systemd}) {
+    if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{systemd}) {
 	push @$incl, 'isc-dhcp-client';
 	push @$excl, qw(libmodule-build-perl libdrm-common libdrm2 libplymouth5 plymouth plymouth-theme-ubuntu-text powermgmt-base);
 	if ($suite eq 'jammy') {
@@ -1253,7 +1253,7 @@ sub install_init_script {
     my $target = "$rootdir/etc/init.d/$base";
 
     $self->run_command ("install -m 0755 '$script' '$target'");
-    if ($suiteinfo->{flags}->{systemd}) {
+    if ($suiteinfo->{systemd}) {
 	die "unable to install init script (system uses systemd)\n";
     } elsif ($suite eq 'trusty' || $suite eq 'precise') {
 	die "unable to install init script (system uses upstart)\n";
@@ -1285,7 +1285,7 @@ sub bootstrap {
 
     # some releases do not have the init metapackage in the rquired set anymore, but DAB assumes
     # that, so explicitly add systemd-sysv, which provides the /sbin/init symlink to systemd.
-    my $add_systemd_sysv_as_required = $suiteinfo->{flags}->{systemd};
+    my $add_systemd_sysv_as_required = $suiteinfo->{systemd};
     push @$required, 'systemd-sysv' if $add_systemd_sysv_as_required;
 
     my $mta = $opts->{exim} ? 'exim' : 'postfix';
@@ -1409,7 +1409,7 @@ sub bootstrap {
     # avoid warnings about non-existent resolv.conf
     write_file ("", "$rootdir/etc/resolv.conf", 0644);
 
-    if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{flags}->{systemd}) {
+    if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{systemd}) {
 	# no need to configure loopback device
 	# FIXME: Debian (systemd based?) too?
     } else {
@@ -1588,7 +1588,7 @@ EOD
 	$self->run_command ($cmd);
     }
 
-    if ($suiteinfo->{flags}->{systemd}) {
+    if ($suiteinfo->{systemd}) {
 	for my $unit (qw(sys-kernel-config.mount sys-kernel-debug.mount systemd-journald-audit.socket)) {
 	    $self->logmsg("Masking problematic systemd unit '$unit'\n");
 	    $self->mask_systemd_unit($unit);
