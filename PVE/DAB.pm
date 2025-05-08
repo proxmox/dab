@@ -563,10 +563,8 @@ sub new {
 	if ($suite eq 'jammy') {
 	    push @$excl, qw(fuse); # avoid fuse2 <-> fuse3 conflict
 	}
-    } elsif ($suite eq 'buster' || $suite eq 'bullseye' || $suite eq 'bookworm') {
+    } else {
 	push @$excl, qw(module-init-tools pciutils hdparm memtest86+ parted);
-     } else {
-	push @$excl, qw(udev module-init-tools pciutils hdparm memtest86+ parted);
     }
 
     $self->{incl} = $incl;
@@ -686,14 +684,6 @@ sub finalize {
 	unlink "$rootdir/root/.my.cnf";
     }
 
-    if ($suite eq 'etch') {
-	# enable apache2 startup
-	if ($instpkgs->{apache2}) {
-	    write_file ("NO_START=0\n", "$rootdir/etc/default/apache2");
-	} else {
-	    unlink "$rootdir/etc/default/apache2";
-	}
-    }
     $self->logmsg ("cleanup package status\n");
     # prevent auto selection of all standard, required, or important packages which are not installed
     foreach my $pkg (keys %$pkginfo) {
@@ -1263,9 +1253,7 @@ sub install_init_script {
     my $target = "$rootdir/etc/init.d/$base";
 
     $self->run_command ("install -m 0755 '$script' '$target'");
-    if ($suite eq 'etch' || $suite eq 'lenny') {
-	$self->ve_command ("update-rc.d $base start $prio $runlevel .");
-    } elsif ($suiteinfo->{flags}->{systemd}) {
+    if ($suiteinfo->{flags}->{systemd}) {
 	die "unable to install init script (system uses systemd)\n";
     } elsif ($suite eq 'trusty' || $suite eq 'precise') {
 	die "unable to install init script (system uses upstart)\n";
@@ -1598,22 +1586,6 @@ EOD
 	$cmd .= ' -e \'s/^\(net\.ipv6\.bindv6only.*\)/#\1/\'';	
 	$cmd .= " -i '$bindv6only'";
 	$self->run_command ($cmd);
-    }
-
-    if ($suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty') {
-	# disable tty init (console-setup)
-	my $cmd = 'sed';
-	$cmd .= ' -e \'s/^\(ACTIVE_CONSOLES=.*\)/ACTIVE_CONSOLES=/\'';
-	$cmd .= " -i '$rootdir/etc/default/console-setup'";
-	$self->run_command ($cmd);
-    }
-
-    if ($suite eq 'intrepid' || $suite eq 'jaunty') {
-	# remove sysctl setup (avoid warnings at startup)
-	my $filelist = "$rootdir/etc/sysctl.d/10-console-messages.conf";
-	$filelist .= " $rootdir/etc/sysctl.d/10-process-security.conf" if $suite eq 'intrepid';
-	$filelist .= " $rootdir/etc/sysctl.d/10-network-security.conf";
-	$self->run_command ("rm $filelist");
     }
 
     if ($suiteinfo->{flags}->{systemd}) {
