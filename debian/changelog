@@ -1,3 +1,11 @@
+dab (3.7.1) stable; urgency=medium
+
+  * add support for configuring repositories through an `Install-Source`
+    config property, which behaves the same as the `Source` property, but any
+    repository configured with the former won't end up in the final appliance.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 30 Sep 2025 17:19:29 +0200
+
 dab (3.7.0) stable; urgency=medium
 
   * make fixing up problematic sysctl settings generic to config file paths to
