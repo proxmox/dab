@@ -451,6 +451,12 @@ Note: SUITE is a variable and will be substituted.
 There are also reasonable defaults for Ubuntu. If you do not specify any source
 the defaults are used.
 
+=item B<Install-Source:> I<URL [components]>
+
+Defines a source location used only during appliance creation. It is
+not added to the sources.list entries in the resulting templates. Else behaves
+like a B<Source:> entry.
+
 =item B<Depends:> I<dependencies>
 
 Debian like package dependencies. This can be used to make sure that speific

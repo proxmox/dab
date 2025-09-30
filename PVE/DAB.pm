@@ -222,7 +222,7 @@ sub read_config {
 	    chomp $res->{description};	    
 	} elsif ($rec =~ s/^([^:]+):\s*(.*\S)\s*\n//) {
 	    my ($key, $value) = (lc ($1), $2);
-	    if ($key eq 'source' || $key eq 'mirror') {
+	    if ($key eq 'source' || $key eq 'mirror' || $key eq 'install-source') {
 		push @{$res->{$key}}, $value;
 	    } else {
 		die "duplicate key '$key'\n" if defined ($res->{$key});
@@ -507,9 +507,33 @@ sub new {
 		source => $url,
 		comp => $ca,
 		suite => $su,
+		keep => 1,
 	    };
 	} else {
-	    die "syntax error in source spezification '$s'\n";
+	    die "syntax error in source specification '$s'\n";
+	}
+    }
+
+    foreach my $is (@{$config->{'install-source'}}) {
+	if ($is =~ m@^\s*((https?|ftp)://\S+)\s+(\S+)((\s+(\S+))+)$@) {
+	    my ($url, $su, $components) = ($1, $3, $4);
+	    $su =~ s/SUITE/$suite/;
+	    $components =~ s/^\s+//;
+	    $components =~ s/\s+$//;
+	    my $ca;
+	    foreach my $co (split (/\s+/, $components)) {
+		push @$ca, $co;
+	    }
+	    $ca = ['main'] if !$ca;
+
+	    push @$sources, {
+		source => $url,
+		comp => $ca,
+		suite => $su,
+		keep => 0,
+	    };
+	} else {
+	    die "syntax error in install-source specification '$is'\n";
 	}
     }
 
@@ -1380,7 +1404,8 @@ sub bootstrap {
 	mkdir "$rootdir/etc/apt/sources.list.d";
 	my $origin = lc($suiteinfo->{origin});
 	my $keyring = $suiteinfo->{keyring} or die "missing keyring for origin '$origin'";
-	my $uris = { map { $_->{source} => 1 } $self->{sources}->@* };
+	my @keep_sources = grep { $_->{keep} } $self->{sources}->@*;
+	my $uris = { map { $_->{source} => 1 } @keep_sources };
 
 	for my $uri (keys $uris->%*) {
 	    my $sources = [ grep { $_->{source} eq $uri } $self->{sources}->@* ];
