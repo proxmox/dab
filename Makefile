@@ -92,4 +92,4 @@ distclean: clean
 
 .PHONY: upload
 upload: ${DEB}
-	tar cf - ${DEB} | ssh -X repoman@repo.proxmox.com -- upload --product pve --dist bookworm
+	tar cf - ${DEB} | ssh -X repoman@repo.proxmox.com -- upload --product pve --dist trixie
