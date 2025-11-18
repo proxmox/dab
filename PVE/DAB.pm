@@ -89,12 +89,15 @@ my $supported_suites = {
 # DEVUAN (imply systemd = 0 default)
     'beowulf' => {
 	ostype => "devuan-3.0",
+    origin => 'devuan',
     },
     'chimaera' => {
 	ostype => "devuan-4.0",
+    origin => 'devuan',
     },
     'daedalus' => {
 	ostype => "devuan-5.0",
+    origin => 'devuan',
     },
 
 # UBUNTU
