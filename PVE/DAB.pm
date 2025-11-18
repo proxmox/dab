@@ -1207,19 +1207,30 @@ sub __closure_single {
 	  }
       }
       # search for non-excluded alternative
-      my $found;
+      my $success;
       foreach my $p1 (@l1) {
-	  if ($p1 =~ m/^\s*(\S+).*/) {
-	      next if grep { $1 eq $_ } @$excl;
-	      $found = $1;
-	      last;
-	  }
-      }
-      die "package '$pname' depends on exclusion '$p'\n" if !$found;
+          next unless $p1 =~ /^\s*(\S+)/;
+          my $candidate = $1;
 
-      #printf (STDERR "$pname: $p --> $found\n");
-	  
-      __closure_single ($pkginfo, $closure, $pkghash, $pkglist, $found, $excl);
+          next if grep { $candidate eq $_ } @$excl;
+
+          #print STDERR "$pname: trying $candidate for '$p'\n";
+
+          my $ok = eval {
+              __closure_single($pkginfo, $closure, $pkghash, $pkglist, $candidate, $excl);
+              1;
+          };
+
+          if ($ok) {
+              $success = 1;
+              last;
+          } else {
+              print STDERR "$pname: $candidate failed, trying next alternative...\n";
+          }
+      }
+
+      die "package '$pname' could not satisfy dependency '$p' (all alternatives failed)\n"
+          unless $success;
   }
 }
 
