@@ -1322,9 +1322,15 @@ sub bootstrap {
         @{ $important } = grep { !$remove{$_} } @{ $important };
     }
 
-    my $mta = $opts->{exim} ? 'exim' : 'postfix';
+    my $mta = $opts->{mta} ? $opts->{mta} : "postfix";
+    
+    # Maintain compatibility with `--exim` flag
+    if ($opts->{exim}) {
+        $mta = "exim";
+    }
+
     if ($mta eq 'postfix') {
-	push @$important, "postfix";
+        push @$important, "postfix";
     }
 
     if ($opts->{include}) {
