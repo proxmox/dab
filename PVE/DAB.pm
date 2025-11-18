@@ -99,6 +99,10 @@ my $supported_suites = {
 	ostype => "devuan-5.0",
     origin => 'devuan',
     },
+    'excalibur' => {
+    ostype => "devuan-6.0",
+    origin => 'devuan',
+    },
 
 # UBUNTU
     'bionic' => {
