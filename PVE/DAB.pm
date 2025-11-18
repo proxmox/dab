@@ -1295,6 +1295,15 @@ sub bootstrap {
     my $add_systemd_sysv_as_required = $suiteinfo->{systemd};
     push @$required, 'systemd-sysv' if $add_systemd_sysv_as_required;
 
+    if ($opts->{'no-ssh'}) {
+        my %remove = (
+            'ssh' => 1,
+            'openssh-server' => 1,
+        );
+
+        @{ $important } = grep { !$remove{$_} } @{ $important };
+    }
+
     my $mta = $opts->{exim} ? 'exim' : 'postfix';
     if ($mta eq 'postfix') {
 	push @$important, "postfix";
