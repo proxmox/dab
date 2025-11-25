@@ -30,6 +30,11 @@ PERLDIR=${DESTDIR}/${PREFIX}/share/perl5/
 # avoid build loops, as we have nor real folder structure here
 all:
 
+.PHONY: tidy
+tidy:
+	git ls-files ':*.p[ml]'| xargs -n4 -P0 proxmox-perltidy
+	proxmox-perltidy dab
+
 .PHONY: dinstall
 dinstall: deb
 	dpkg -i ${DEB}
