@@ -32,11 +32,11 @@ sub print_usage {
     print STDERR "USAGE: dab <command> [parameters]\n\n";
 
     for my $cmd (sort keys %$commands) {
-	if (my $opts = $commands->{$cmd}) {
-	    print STDERR "  dab $cmd $opts\n";
-	} else {
-	    print STDERR "  dab $cmd\n";
-	}
+        if (my $opts = $commands->{$cmd}) {
+            print STDERR "  dab $cmd $opts\n";
+        } else {
+            print STDERR "  dab $cmd\n";
+        }
     }
 }
 
@@ -46,14 +46,14 @@ sub fatal_usage {
     print STDERR "\nERROR: $msg\n\n" if $msg;
     print_usage();
 
-    exit (-1);
+    exit(-1);
 }
 
-if (scalar (@ARGV) == 0) {
+if (scalar(@ARGV) == 0) {
     fatal_usage("no command specified");
 }
 
-my $cmdline = join (' ', @ARGV);
+my $cmdline = join(' ', @ARGV);
 my $cmd = shift @ARGV;
 
 if (!$cmd) {
@@ -62,16 +62,17 @@ if (!$cmd) {
     fatal_usage("unknown command '$cmd'");
 } elsif ($cmd eq 'help') {
     print_usage();
-    exit (0);
+    exit(0);
 }
 
 my $dab;
-sub dab :prototype() { # make it a directly as `dab->foo()` callable singleton
+
+sub dab : prototype() { # make it a directly as `dab->foo()` callable singleton
     $dab = PVE::DAB->new() if !$dab;
     return $dab;
 }
 
-dab->writelog ("dab: $cmdline\n");
+dab->writelog("dab: $cmdline\n");
 
 $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub {
     die "interrupted by signal\n";
@@ -79,153 +80,161 @@ $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub {
 
 eval {
     if ($cmd eq 'init') {
-	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
+        die "command '$cmd' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	dab->initialize();
+        dab->initialize();
 
     } elsif ($cmd eq 'bootstrap') {
-	my $opts = {};
-	if (!GetOptions ($opts, 'exim', 'minimal', 'device-skelleton', 'include=s',
-	        'exclude=s', 'no-ssh', 'mta=s')) {
-	    fatal_usage();
-	}
-	die "command 'bootstrap' expects no arguments.\n" if scalar (@ARGV) != 0;
+        my $opts = {};
+        if (!GetOptions(
+            $opts,
+            'exim',
+            'minimal',
+            'device-skelleton',
+            'include=s',
+            'exclude=s',
+            'no-ssh',
+            'mta=s',
+        )) {
+            fatal_usage();
+        }
+        die "command 'bootstrap' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	$dab->ve_init();
-	$dab->bootstrap ($opts);
+        $dab->ve_init();
+        $dab->bootstrap($opts);
 
     } elsif ($cmd eq 'finalize') {
-	my $opts = {};
-	if (!GetOptions ($opts, 'keepmycnf', 'compressor=s')) {
-	    fatal_usage();
-	}
-	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
+        my $opts = {};
+        if (!GetOptions($opts, 'keepmycnf', 'compressor=s')) {
+            fatal_usage();
+        }
+        die "command '$cmd' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	$dab->finalize($opts);
+        $dab->finalize($opts);
 
     } elsif ($cmd eq 'veid') {
-	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
+        die "command '$cmd' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	print $dab->{veid} . "\n";
+        print $dab->{veid} . "\n";
 
     } elsif ($cmd eq 'basedir') {
-	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
+        die "command '$cmd' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	print $dab->{rootfs} . "\n";
+        print $dab->{rootfs} . "\n";
     } elsif ($cmd eq 'targetname') {
-	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
-	print $dab->{targetname} . "\n";
+        die "command '$cmd' expects no arguments.\n" if scalar(@ARGV) != 0;
+        print $dab->{targetname} . "\n";
 
     } elsif ($cmd eq 'packagefile') {
-	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
-	# FIXME: either drop this or make it compressor aware, not all end with .gz...
-	print "$dab->{targetname}.tar.gz\n";
+        die "command '$cmd' expects no arguments.\n" if scalar(@ARGV) != 0;
+        # FIXME: either drop this or make it compressor aware, not all end with .gz...
+        print "$dab->{targetname}.tar.gz\n";
 
     } elsif ($cmd eq 'list') {
-	my $verbose;
-	if (!GetOptions ('verbose' =>\$verbose)) {
-	    fatal_usage();
-	}
-	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
+        my $verbose;
+        if (!GetOptions('verbose' => \$verbose)) {
+            fatal_usage();
+        }
+        die "command '$cmd' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	my $instpkgs = $dab->read_installed ();
+        my $instpkgs = $dab->read_installed();
 
-	foreach my $pkg (sort keys %$instpkgs) {
-	    if ($verbose) {
-		my $version = $instpkgs->{$pkg}->{version};
-		print "$pkg $version\n";
-	    } else {
-		print "$pkg\n";
-	    }
-	}
+        foreach my $pkg (sort keys %$instpkgs) {
+            if ($verbose) {
+                my $version = $instpkgs->{$pkg}->{version};
+                print "$pkg $version\n";
+            } else {
+                print "$pkg\n";
+            }
+        }
 
     } elsif ($cmd eq 'task') {
-	my $task = shift @ARGV;
-	if (!$task) {
-	    fatal_usage("no task specified");
-	}
+        my $task = shift @ARGV;
+        if (!$task) {
+            fatal_usage("no task specified");
+        }
 
-	my $opts = {};
-	if ($task eq 'mysql') {
-	    if (!GetOptions ($opts, 'password=s', 'start')) {
-		fatal_usage();
-	    }
-	    die "task '$task' expects no arguments.\n" if scalar (@ARGV) != 0;
+        my $opts = {};
+        if ($task eq 'mysql') {
+            if (!GetOptions($opts, 'password=s', 'start')) {
+                fatal_usage();
+            }
+            die "task '$task' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	    $dab->task_mysql ($opts);
+            $dab->task_mysql($opts);
 
-	} elsif ($task eq 'postgres') {
-	    if (!GetOptions ($opts, 'version=s', 'start')) {
-		fatal_usage();
-	    }
-	    die "task '$task' expects no arguments.\n" if scalar (@ARGV) != 0;
+        } elsif ($task eq 'postgres') {
+            if (!GetOptions($opts, 'version=s', 'start')) {
+                fatal_usage();
+            }
+            die "task '$task' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	    $dab->task_postgres ($opts);
+            $dab->task_postgres($opts);
 
-	} elsif ($task eq 'php') {
-	    if (!GetOptions ($opts, 'memlimit=i')) {
-		fatal_usage();
-	    }
-	    die "task '$task' expects no arguments.\n" if scalar (@ARGV) != 0;
+        } elsif ($task eq 'php') {
+            if (!GetOptions($opts, 'memlimit=i')) {
+                fatal_usage();
+            }
+            die "task '$task' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	    $dab->task_php ($opts);
+            $dab->task_php($opts);
 
-	} else {
-	    fatal_usage("unknown task '$task'");
-	}
+        } else {
+            fatal_usage("unknown task '$task'");
+        }
 
     } elsif ($cmd eq 'install' || $cmd eq 'unpack') {
-	my $required;
-	foreach my $arg (@ARGV) {
-	    if ($arg =~ m/\.pkglist$/) {
-		open (TMP, $arg) ||
-		    die "cant open package list '$arg' - $!";
-		while (defined (my $line = <TMP>)) {
-		    chomp $line;
-		    next if $line =~ m/^\s*$/;
-		    next if $line =~ m/\#/;
-		    if ($line =~ m/^\s*(\S+)\s*$/) {
-			push @$required, $1;
-		    } else {
-			die "invalid package name in '$arg' - $line\n";
-		    }
-		}
-	    } else {
-		push @$required, $arg;
-	    }
+        my $required;
+        foreach my $arg (@ARGV) {
+            if ($arg =~ m/\.pkglist$/) {
+                open(TMP, $arg)
+                    || die "cant open package list '$arg' - $!";
+                while (defined(my $line = <TMP>)) {
+                    chomp $line;
+                    next if $line =~ m/^\s*$/;
+                    next if $line =~ m/\#/;
+                    if ($line =~ m/^\s*(\S+)\s*$/) {
+                        push @$required, $1;
+                    } else {
+                        die "invalid package name in '$arg' - $line\n";
+                    }
+                }
+            } else {
+                push @$required, $arg;
+            }
 
-	    close (TMP);
-	}
+            close(TMP);
+        }
 
-	$dab->install ($required, $cmd eq 'unpack');
+        $dab->install($required, $cmd eq 'unpack');
 
     } elsif ($cmd eq 'exec') {
 
-	$dab->ve_exec (@ARGV);
+        $dab->ve_exec(@ARGV);
 
     } elsif ($cmd eq 'enter') {
-	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
+        die "command '$cmd' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	$dab->enter();
+        $dab->enter();
 
     } elsif ($cmd eq 'clean') {
-	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
+        die "command '$cmd' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	$dab->cleanup(0);
+        $dab->cleanup(0);
 
     } elsif ($cmd eq 'dist-clean') {
-	die "command '$cmd' expects no arguments.\n" if scalar (@ARGV) != 0;
+        die "command '$cmd' expects no arguments.\n" if scalar(@ARGV) != 0;
 
-	$dab->cleanup(1);
+        $dab->cleanup(1);
 
     } else {
-	fatal_usage("invalid command '$cmd'");
+        fatal_usage("invalid command '$cmd'");
     }
 
 };
 if (my $err = $@) {
-    $dab->logmsg ($@);
-    die ($@);
+    $dab->logmsg($@);
+    die($@);
 }
 
 exit 0;
@@ -493,7 +502,7 @@ characters long and must start with an alphanumeric character.
 
 Target architecture.
 
-=item B<Version:> I<upstream_version[-build_revision]> 
+=item B<Version:> I<upstream_version[-build_revision]>
 
 The version number of an appliance.
 
