@@ -130,6 +130,16 @@ my $supported_suites = {
         origin => 'ubuntu',
         modern_apt_sources => 1,
     },
+    'questing' => {
+        ostype => "ubuntu-25.10",
+        origin => 'ubuntu',
+        modern_apt_sources => 1,
+    },
+    'resolute' => {
+        ostype => "ubuntu-26.04",
+        origin => 'ubuntu',
+        modern_apt_sources => 1,
+    },
 };
 
 sub get_suite_info {
