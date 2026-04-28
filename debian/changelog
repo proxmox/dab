@@ -1,3 +1,20 @@
+dab (3.8.0) stable; urgency=medium
+
+  * add a '--no-ssh' option to dab bootstrap to disable ssh packages that are
+    automatically included otherwise.
+
+  * add devuan "Excalibur" 6.0 suite.
+
+  * adapt dependency selection algorithm to use an alternate package if the
+    most preferred candidate fails.
+
+  * add new `[--mta <postfix|exim|none>]` flag; Deprecate --exim, allowing to
+    skip the otherwise default selected postfix.
+
+  * add support for building Ubuntu 25.10 Questing and 26.04 Resolute LTS.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 28 Apr 2026 21:32:09 +0200
+
 dab (3.7.1) stable; urgency=medium
 
   * add support for configuring repositories through an `Install-Source`
