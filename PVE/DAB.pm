@@ -15,7 +15,7 @@ use UUID;
 
 # fixme: lock container ?
 
-my $dablibdir = "/usr/lib/dab";
+my $dablibdir = "/usr/share/dab";
 my $devicetar = "$dablibdir/devices.tar.gz";
 my $default_env = "$dablibdir/scripts/defenv";
 my $fake_init = "$dablibdir/scripts/init.pl";
