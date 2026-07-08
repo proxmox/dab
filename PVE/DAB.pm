@@ -15,13 +15,14 @@ use UUID;
 
 # fixme: lock container ?
 
-my $dablibdir = "/usr/share/dab";
-my $devicetar = "$dablibdir/devices.tar.gz";
-my $default_env = "$dablibdir/scripts/defenv";
-my $fake_init = "$dablibdir/scripts/init.pl";
-my $script_ssh_init = "$dablibdir/scripts/ssh_gen_host_keys";
-my $script_mysql_randompw = "$dablibdir/scripts/mysql_randompw";
-my $script_init_urandom = "$dablibdir/scripts/init_urandom";
+# the override is mainly for running dab directly from a source checkout
+my $dab_share_dir = $ENV{DAB_SHARE_DIR} // "/usr/share/dab";
+my $devicetar = "$dab_share_dir/devices.tar.gz";
+my $default_env = "$dab_share_dir/scripts/defenv";
+my $fake_init = "$dab_share_dir/scripts/init.pl";
+my $script_ssh_init = "$dab_share_dir/scripts/ssh_gen_host_keys";
+my $script_mysql_randompw = "$dab_share_dir/scripts/mysql_randompw";
+my $script_init_urandom = "$dab_share_dir/scripts/init_urandom";
 
 my $postfix_main_cf = <<EOD;
 # See /usr/share/postfix/main.cf.dist for a commented, more complete version

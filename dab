@@ -583,6 +583,17 @@ The following files are created inside your working directory:
 
  info/*            package information cache
 
+=head1 ENVIRONMENT
+
+=over 2
+
+=item B<DAB_SHARE_DIR>
+
+Read the helper scripts and the device archive from this directory instead of
+C</usr/share/dab>, for example to run dab directly from a source checkout.
+
+=back
+
 =head1 AUTHOR
 
 Dietmar Maurer <dietmar@proxmox.com>
