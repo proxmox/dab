@@ -6,6 +6,7 @@ use warnings;
 use Cwd;
 use File::Basename;
 use File::Path;
+use File::Copy;
 use IO::File;
 use IO::Select;
 use IPC::Open2;
@@ -187,6 +188,9 @@ sub write_file {
     print $fh $data;
 
     $fh->close;
+
+    # the perm passed to open above gets masked by the umask, so enforce it explicitly
+    chmod($perm, $file) or die "unable to chmod file '$file' - $!\n" if defined($perm);
 }
 
 sub read_file {
@@ -203,7 +207,16 @@ sub read_file {
 
     $fh->close;
 
-    return $data;
+    return $data // ''; # empty files yield undef in slurp mode
+}
+
+# copy a file's contents without preserving any attributes of the source; the destination is
+# created with 0666 & ~umask unless an explicit $perm is given.
+sub copy_file {
+    my ($src, $dst, $perm) = @_;
+
+    copy($src, $dst) or die "unable to copy '$src' to '$dst' - $!\n";
+    chmod($perm, $dst) or die "unable to chmod file '$dst' - $!\n" if defined($perm);
 }
 
 sub symln {
