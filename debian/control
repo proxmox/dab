@@ -17,6 +17,7 @@ Depends: binutils,
          wget,
          ${misc:Depends},
          ${perl:Depends},
+Recommends: uidmap,
 Description: Debian LXC Appliance Builder
  This package contains scripts to automate the creation of LXC
  appliances.

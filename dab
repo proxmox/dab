@@ -432,9 +432,15 @@ up the first run).
 
 See http://pve.proxmox.com/wiki/Debian_Appliance_Builder for examples.
 
-This script need to be run as root, so it is not recommended to start it on a
-production machine with running containers. So many people run Proxmox VE
-inside a KVM or VMWare 64bit virtual machine to build appliances.
+This script can either run as root, or as a regular user. When run as a
+regular user, the build uses an unprivileged container and user namespaces.
+This requires sub-id ranges of at least 65536 IDs allocated for that user in
+C</etc/subuid> and C</etc/subgid>, the C<uidmap> package, and that every
+component of the working directory path can be traversed by the sub-ids
+(other-executable mode bit).
+
+It is still not recommended to build appliances on a production machine with
+running containers, use a virtual machine or a dedicated host for that.
 
 All generated templates includes an appliance description file. Those can be
 used to build appliance repositories.

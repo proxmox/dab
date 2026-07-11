@@ -11,8 +11,12 @@ use IO::File;
 use IO::Select;
 use IPC::Open2;
 use IPC::Open3;
+use JSON::PP qw(encode_json decode_json);
 use POSIX qw (LONG_MAX);
 use UUID;
+
+# resolves the syscall numbers used below for the ABI of the running perl interpreter
+require 'syscall.ph';
 
 # fixme: lock container ?
 
@@ -224,6 +228,49 @@ sub symln {
     symlink($a, $b) or die "failed to symlink $a => $b: $!";
 }
 
+# Look up the sub-id ranges for the user in $file (/etc/subuid or /etc/subgid); entries may be
+# keyed on the user name or the numeric uid. Returns a hash with 'base' (first id) and 'count'
+# (range size) for the first entry covering at least $needed ids; dies if there is none.
+sub __parse_subid_range {
+    my ($user, $uid, $file, $needed) = @_;
+
+    my $fh = IO::File->new($file, 'r')
+        || die "unable to open '$file' - $!\n";
+
+    my @ranges;
+    while (defined(my $line = <$fh>)) {
+        next if $line =~ m/^\s*(?:\#|$)/;
+        if ($line =~ m/^([^:]+):(\d+):(\d+)\s*$/) {
+            push @ranges, { base => $2, count => $3 } if $1 eq $user || $1 eq "$uid";
+        }
+    }
+    close($fh);
+
+    for my $range (@ranges) {
+        return $range if $range->{count} >= $needed;
+    }
+    die "no entry for user '$user' in '$file' - allocate a sub-id range first\n" if !@ranges;
+    die "all sub-id ranges for '$user' in '$file' are too small (need >= $needed ids)\n";
+}
+
+use constant CLONE_NEWNS => 0x00020000;
+use constant CLONE_NEWUSER => 0x10000000;
+use constant MS_REC => 0x4000;
+use constant MS_SLAVE => 0x80000;
+
+# Thin wrapper around the unshare(2) syscall. Returns true on success.
+sub __unshare {
+    my ($flags) = @_;
+    return 0 == syscall(&SYS_unshare, $flags);
+}
+
+# Thin wrapper around the mount(2) syscall. Pass undef for any argument that should be a NULL
+# pointer. Returns true on success.
+sub __mount {
+    my ($source, $target, $fstype, $flags, $data) = @_;
+    return 0 == syscall(&SYS_mount, $source // 0, $target // 0, $fstype // 0, $flags, $data // 0);
+}
+
 sub read_config {
     my ($filename) = @_;
 
@@ -336,6 +383,151 @@ sub run_command {
     return $res;
 }
 
+# Run a Perl closure in an isolated subprocess. Always provides:
+#   * a forked process, so a die or crash in $code does not affect the caller,
+#   * a fresh mount namespace whose root is rslave of the host, so any mounts the closure makes
+#     stay contained and cannot propagate back to the host,
+#   * a fixed umask of 022, so file modes inside the rootfs do not depend on the caller's umask.
+# When the caller is unprivileged, additionally provides a user namespace with the configured
+# sub-id range mapped to 0..count and the invoking user mapped right after it, with $code
+# executing as uid 0/gid 0 inside that namespace. That way native Perl IO creates files with the
+# right ownership for the build without shelling out through lxc-usernsexec, while files owned by
+# the invoking user (package cache, working directory) stay accessible via CAP_DAC_OVERRIDE.
+#
+# The closure may return any JSON-serializable value; that value is round-tripped through a pipe
+# and returned to the caller. Errors raised in the closure are likewise propagated and re-raised
+# in the caller's process.
+sub run_isolated {
+    my ($self, $code) = @_;
+
+    # resolve before forking, so a missing sub-id allocation fails with a clean error
+    my $idmap = $self->{unprivileged} ? $self->__idmap() : undef;
+
+    pipe(my $ready_r, my $ready_w) or die "pipe(ready): $!\n"; # child -> parent: unshare(2) done
+    pipe(my $sync_r, my $sync_w) or die "pipe(sync): $!\n"; # parent -> child: id maps installed
+    pipe(my $payload_r, my $payload_w) or die "pipe(payload): $!\n";
+
+    my $pid = fork() // die "fork failed: $!\n";
+
+    if ($pid == 0) {
+        # child: enter the isolated namespaces, then wait for parent's go-ahead.
+        close($ready_r);
+        close($sync_w);
+        close($payload_r);
+
+        my $payload = eval {
+            my $flags = CLONE_NEWNS;
+            $flags |= CLONE_NEWUSER if $self->{unprivileged};
+            __unshare($flags)
+                or die "unshare() failed: $!\n";
+
+            # detach our mount tree so mount events stay in this namespace
+            __mount(undef, '/', undef, MS_REC | MS_SLAVE, undef)
+                or die "make-rslave on '/' failed: $!\n";
+
+            # the id maps can only be installed once the user namespace exists, so signal the
+            # parent that it is safe to run newuidmap/newgidmap now
+            syswrite($ready_w, 'r') // die "failed to signal namespace readiness: $!\n";
+            close($ready_w);
+
+            my $n = sysread($sync_r, my $byte, 1);
+            die "reading from sync pipe failed: $!\n" if !defined($n);
+            die "parent closed sync pipe before signaling - id mapping setup failed\n" if !$n;
+            close($sync_r);
+
+            if ($self->{unprivileged}) {
+                # a failing POSIX::set[ug]id returns undef, and as undef == 0 is true, an
+                # explicit defined check is required to detect errors
+                defined(POSIX::setgid(0)) or die "setgid(0) inside userns failed: $!\n";
+                defined(POSIX::setuid(0)) or die "setuid(0) inside userns failed: $!\n";
+            }
+            umask(0022);
+
+            my $result = $code->();
+            encode_json({ result => $result });
+        };
+        my $had_error = 0;
+        if (my $err = $@) {
+            $had_error = 1;
+            $payload = eval { encode_json({ error => $err }) }
+                // '{"error":"failed to encode child error"}';
+        }
+
+        print {$payload_w} $payload;
+        close($payload_w);
+        POSIX::_exit($had_error ? 1 : 0);
+    }
+
+    # parent: install the id maps when needed, then signal child to proceed.
+    close($ready_w);
+    close($sync_r);
+    close($payload_w);
+
+    my $n = sysread($ready_r, my $ready_byte, 1);
+    die "reading from ready pipe failed: $!\n" if !defined($n);
+    close($ready_r);
+
+    my $setup_err;
+    if ($n && $self->{unprivileged}) {
+        my ($egid) = split(/\s+/, $));
+        eval {
+            # map the sub-id range to 0..count and additionally the invoking user right after
+            # it, so the child can still access the caller's files (package cache, working
+            # directory) as namespace-root via CAP_DAC_OVERRIDE
+            $self->run_command([
+                'newuidmap',
+                $pid,
+                0,
+                $idmap->{uid_base},
+                $idmap->{count},
+                $idmap->{count},
+                $>,
+                1,
+            ]);
+            $self->run_command([
+                'newgidmap',
+                $pid,
+                0,
+                $idmap->{gid_base},
+                $idmap->{count},
+                $idmap->{count},
+                $egid,
+                1,
+            ]);
+        };
+        $setup_err = $@;
+    }
+
+    if ($n && !$setup_err) {
+        # if the child died early, an unhandled SIGPIPE here would kill us too
+        local $SIG{PIPE} = 'IGNORE';
+        syswrite($sync_w, 'x');
+    }
+    close($sync_w); # on setup errors, the child sees EOF instead and aborts
+
+    my $raw = do { local $/; <$payload_r> };
+    close($payload_r);
+
+    waitpid($pid, 0);
+    my $status = $?;
+
+    die $setup_err if $setup_err;
+
+    if (!defined($raw) || $raw eq '') {
+        my $detail =
+            ($status & 127)
+            ? "killed by signal " . ($status & 127)
+            : "exit code " . ($status >> 8);
+        die "isolated child produced no payload ($detail)\n";
+    }
+
+    my $decoded = eval { decode_json($raw) };
+    die "isolated child returned undecodable payload: $@" if $@;
+    die $decoded->{error} if defined $decoded->{error};
+
+    return $decoded->{result};
+}
+
 sub logmsg {
     my $self = shift;
     print STDERR @_;
@@ -348,6 +540,31 @@ sub writelog {
     print $fd @_;
 }
 
+# Resolve and validate the sub-id mapping for unprivileged use on first call, so that commands
+# which never touch namespaces keep working for users without a sub-id allocation.
+sub __idmap {
+    my ($self) = @_;
+
+    return $self->{idmap} if $self->{idmap};
+
+    my $user = getpwuid($>) // die "cannot resolve current user (uid=$>)\n";
+
+    my $needed = 65536;
+    my $subuid = __parse_subid_range($user, $>, '/etc/subuid', $needed);
+    my $subgid = __parse_subid_range($user, $>, '/etc/subgid', $needed);
+
+    for my $tool ('newuidmap', 'newgidmap') {
+        die "required tool '$tool' not found in PATH (install package 'uidmap')\n"
+            if !grep { -x "$_/$tool" } split(/:/, $ENV{PATH} // '/usr/sbin:/usr/bin:/sbin:/bin');
+    }
+
+    return $self->{idmap} = {
+        uid_base => $subuid->{base},
+        gid_base => $subgid->{base},
+        count => $needed,
+    };
+}
+
 sub __sample_config {
     my ($self) = @_;
 
@@ -358,16 +575,19 @@ sub __sample_config {
 
     if ($ostype =~ m/^de(bi|vu)an-/) {
         $data .= "lxc.include = /usr/share/lxc/config/debian.common.conf\n";
-        $data .= "lxc.include = /usr/share/lxc/config/debian.userns.conf\n" if $> != 0;
+        $data .= "lxc.include = /usr/share/lxc/config/debian.userns.conf\n"
+            if $self->{unprivileged};
     } elsif ($ostype =~ m/^ubuntu-/) {
         $data .= "lxc.include = /usr/share/lxc/config/ubuntu.common.conf\n";
-        $data .= "lxc.include = /usr/share/lxc/config/ubuntu.userns.conf\n" if $> != 0;
+        $data .= "lxc.include = /usr/share/lxc/config/ubuntu.userns.conf\n"
+            if $self->{unprivileged};
     } else {
         die "unknown os type '$ostype'\n";
     }
-    if ($> != 0) {
-        $data .= "lxc.idmap = u 0 100000 65536\n";
-        $data .= "lxc.idmap = g 0 100000 65536\n";
+    if ($self->{unprivileged}) {
+        my $idmap = $self->__idmap();
+        $data .= "lxc.idmap = u 0 $idmap->{uid_base} $idmap->{count}\n";
+        $data .= "lxc.idmap = g 0 $idmap->{gid_base} $idmap->{count}\n";
     }
     $data .= "lxc.uts.name = localhost\n";
     $data .= "lxc.rootfs.path = $self->{rootfs}\n";
@@ -391,6 +611,7 @@ sub __allocate_ve {
 
     if ($cid) {
         $self->{veid} = $cid;
+        $self->__assert_config_compat();
         return $cid;
     }
 
@@ -412,11 +633,40 @@ sub __allocate_ve {
     print $fh $cdata;
     close($fh);
 
-    mkdir $self->{rootfs} || die "unable to create rootfs - $!";
+    # create the rootfs directory in the namespace, so its owner maps to root inside it and the
+    # archived './' entry ends up with the right ownership
+    $self->run_isolated(sub {
+        mkdir($self->{rootfs}) or die "unable to create rootfs - $!\n";
+    });
 
     $self->logmsg("allocated VE $self->{veid}\n");
 
     return $self->{veid};
+}
+
+# The lxc config generated at allocation time bakes in whether the build is unprivileged and
+# which sub-id range it maps, so later invocations must match: mixing them would create files
+# in the rootfs that the other mode cannot access, or even delete, anymore.
+sub __assert_config_compat {
+    my ($self) = @_;
+
+    my $conffile = $self->{veconffile};
+    return if !-f $conffile;
+
+    my $conf = read_file($conffile);
+    my $conf_unprivileged = $conf =~ m/^lxc\.idmap\s*=/m ? 1 : 0;
+    if ($conf_unprivileged != $self->{unprivileged}) {
+        my ($mode, $other) =
+            $conf_unprivileged ? ('unprivileged', 'root') : ('root', 'unprivileged');
+        die "this working directory was set up for $mode builds, but dab now runs as $other -"
+            . " use the same user as before, or start over in a clean directory\n";
+    }
+    if ($self->{unprivileged}) {
+        my $idmap = $self->__idmap();
+        die "the sub-id range changed since this working directory was set up -"
+            . " start over in a clean directory\n"
+            if $conf !~ m/^lxc\.idmap = u 0 \Q$idmap->{uid_base}\E \Q$idmap->{count}\E$/m;
+    }
 }
 
 # just use some simple heuristic for now, merge usr for releases newer than ubuntu 21.x or debian 11
@@ -452,6 +702,8 @@ sub setup_usr_merge {
 
     $self->logmsg("setup usr-merge symlinks for '" . join("', '", @merged_dirs) . "'\n");
 
+    # callers run this inside run_isolated (when unprivileged) or as host root, so native Perl
+    # IO produces the right ownership in either case
     for my $dir (@merged_dirs) {
         symlink("usr/$dir", "$rootfs/$dir") or warn "could not create symlink - $!\n";
         mkpath "$rootfs/usr/$dir";
@@ -483,6 +735,9 @@ sub new {
 
     $self->{logfile} = "logfile";
     $self->{logfd} = IO::File->new(">>$self->{logfile}") || die "unable to open log file";
+    # flush writes immediately, also so that nothing is lost when forked children (which cannot
+    # flush inherited buffers on exit) log through this handle
+    $self->{logfd}->autoflush(1);
 
     my $arch = $config->{architecture} || die "no 'architecture' specified\n";
     die "unsupported architecture '$arch'\n" if $arch !~ m/^(i386|amd64)$/;
@@ -590,6 +845,9 @@ sub new {
     $self->{sources} = $sources;
     $self->{infodir} = "info";
 
+    # unprivileged builds use user namespaces to get correct file ownership, see run_isolated
+    $self->{unprivileged} = $> != 0 ? 1 : 0;
+
     $self->__allocate_ve();
 
     $self->{cachedir} = ($config->{cachedir} || 'cache') . "/$suite";
@@ -627,6 +885,7 @@ sub initialize {
     # truncate log
     my $logfd = $self->{logfd} = IO::File->new(">$self->{logfile}")
         || die "unable to open log file";
+    $logfd->autoflush(1);
 
     my $COMPRESSORS = [
         {
@@ -723,7 +982,7 @@ sub finalize {
     }
 
     if (!($opts->{keepmycnf} || (-f "$rootdir/etc/init.d/mysql_randompw"))) {
-        unlink "$rootdir/root/.my.cnf";
+        $self->run_isolated(sub { unlink "$rootdir/root/.my.cnf"; });
     }
 
     $self->logmsg("cleanup package status\n");
@@ -745,21 +1004,28 @@ sub finalize {
     foreach my $ss (@{ $self->{sources} }) {
         my $relsrc = __url_to_filename("$ss->{source}/dists/$ss->{suite}/Release");
         if (-f "$infodir/$relsrc" && -f "$infodir/$relsrc.gpg") {
-            $self->run_command("cp '$infodir/$relsrc' '$rootdir/var/lib/apt/lists/$relsrc'");
-            $self->run_command(
-                "cp '$infodir/$relsrc.gpg' '$rootdir/var/lib/apt/lists/$relsrc.gpg'");
+            $self->run_isolated(sub {
+                copy_file("$infodir/$relsrc", "$rootdir/var/lib/apt/lists/$relsrc", 0644);
+                copy_file(
+                    "$infodir/$relsrc.gpg", "$rootdir/var/lib/apt/lists/$relsrc.gpg", 0644,
+                );
+            });
         }
         foreach my $comp (@{ $ss->{comp} }) {
             my $src = __url_to_filename(
                 "$ss->{source}/dists/$ss->{suite}/${comp}/binary-${arch}/Packages");
             my $target = "/var/lib/apt/lists/$src";
-            $self->run_command("cp '$infodir/$src' '$rootdir/$target'");
+            $self->run_isolated(sub {
+                copy_file("$infodir/$src", "$rootdir/$target", 0644);
+            });
             $self->ve_command("dpkg --merge-avail '$target'");
         }
     }
 
-    # set dselect default method
-    write_file("apt apt\n", "$rootdir/var/lib/dpkg/cmethopt");
+    $self->run_isolated(sub {
+        # set dselect default method
+        write_file("apt apt\n", "$rootdir/var/lib/dpkg/cmethopt");
+    });
 
     $self->ve_divert_remove("/usr/sbin/policy-rc.d");
 
@@ -768,14 +1034,15 @@ sub finalize {
     $self->ve_divert_remove("/sbin/init");
 
     # finally stop the VE
-    $self->run_command("lxc-stop -n $veid --rcfile $conffile --kill");
+    $self->run_command("lxc-stop -n $veid -P $self->{working_dir} --rcfile $conffile --kill");
 
-    unlink "$rootdir/sbin/defenv";
-    unlink <$rootdir/root/dead.letter*>;
-    unlink "$rootdir/var/log/init.log";
-    unlink "$rootdir/aquota.group", "$rootdir/aquota.user";
-
-    write_file("", "$rootdir/var/log/syslog");
+    $self->run_isolated(sub {
+        unlink "$rootdir/sbin/defenv";
+        unlink <$rootdir/root/dead.letter*>;
+        unlink "$rootdir/var/log/init.log";
+        unlink "$rootdir/aquota.group", "$rootdir/aquota.user";
+        write_file("", "$rootdir/var/log/syslog");
+    });
 
     my $get_path_size = sub {
         my ($path) = @_;
@@ -788,10 +1055,10 @@ sub finalize {
     };
 
     $self->logmsg("detecting final appliance size: ");
-    my $size = $get_path_size->($rootdir);
+    # the rootfs contains sub-id-owned directories without world access (like /root), so the
+    # size detection must also run inside the user namespace
+    my $size = $self->run_isolated(sub { return $get_path_size->($rootdir); });
     $self->logmsg("$size MB\n");
-
-    $self->write_config("$rootdir/etc/appliance.info", $size);
 
     $self->logmsg("creating final appliance archive\n");
 
@@ -819,9 +1086,29 @@ sub finalize {
     unlink $target;
     unlink $final_archive;
 
-    $self->run_command("tar cpf $target --numeric-owner -C '$rootdir' ./etc/appliance.info");
-    $self->run_command(
-        "tar rpf $target --numeric-owner -C '$rootdir' --exclude ./etc/appliance.info .");
+    # write appliance.info and archive the rootfs inside the user namespace, so ownerships in
+    # the resulting tar are recorded as 0:0 (and not as the host sub-id base).
+    $self->run_isolated(sub {
+        $self->write_config("$rootdir/etc/appliance.info", $size);
+        $self->run_command(
+            ['tar', 'cpf', $target, '--numeric-owner', '-C', $rootdir, './etc/appliance.info']);
+        $self->run_command([
+            'tar',
+            'rpf',
+            $target,
+            '--numeric-owner',
+            '-C',
+            $rootdir,
+            '--exclude',
+            './etc/appliance.info',
+            '.',
+        ]);
+    });
+
+    # the intermediate tar is owned by the sub-id base but world-readable (run_isolated forces
+    # umask 022); running the compressor in the parent (uid of the operator) writes the final
+    # compressed artifact owned by that operator, and the compressors we wrap (gzip default,
+    # zstd --rm) remove the intermediate after success.
     $self->run_command("$compressor_cmd $target");
 
     $self->logmsg("detecting final commpressed appliance size: ");
@@ -902,12 +1189,14 @@ sub ve_command {
     my $conffile = $self->{veconffile};
 
     if (ref($cmd) eq 'ARRAY') {
-        unshift @$cmd, 'lxc-attach', '-n', $veid, '--rcfile', $conffile, '--clear-env', '--',
-            'defenv';
+        unshift @$cmd, 'lxc-attach', '-n', $veid, '-P', $self->{working_dir}, '--rcfile',
+            $conffile, '--clear-env', '--', 'defenv';
         $self->run_command($cmd, $input);
     } else {
         $self->run_command(
-            "lxc-attach -n $veid --rcfile $conffile --clear-env -- defenv $cmd", $input,
+            "lxc-attach -n $veid -P $self->{working_dir} --rcfile $conffile --clear-env"
+                . " -- defenv $cmd",
+            $input,
         );
     }
 }
@@ -926,6 +1215,8 @@ sub ve_exec {
         'lxc-attach',
         '-n',
         $veid,
+        '-P',
+        $self->{working_dir},
         '--rcfile',
         $conffile,
         '--',
@@ -954,7 +1245,7 @@ sub ve_divert_remove {
 
     my $rootdir = $self->{rootfs};
 
-    unlink "$rootdir/$filename";
+    $self->run_isolated(sub { unlink "$rootdir/$filename"; });
     $self->ve_command("dpkg-divert --remove --rename '$filename'");
 }
 
@@ -963,9 +1254,9 @@ sub ve_debconfig_set {
 
     my $rootdir = $self->{rootfs};
     my $cfgfile = "/tmp/debconf.txt";
-    write_file($dcdata, "$rootdir/$cfgfile");
+    $self->run_isolated(sub { write_file($dcdata, "$rootdir/$cfgfile"); });
     $self->ve_command("debconf-set-selections $cfgfile");
-    unlink "$rootdir/$cfgfile";
+    $self->run_isolated(sub { unlink "$rootdir/$cfgfile"; });
 }
 
 sub ve_dpkg_set_selection {
@@ -985,13 +1276,15 @@ sub ve_dpkg {
     my $cachedir = $self->{cachedir};
 
     my @files;
-
     foreach my $pkg (@pkglist) {
         my $filename = $self->getpkgfile($pkg);
-        $self->run_command("cp '$cachedir/$filename' '$rootdir/$filename'");
         push @files, "/$filename";
         $self->logmsg("$cmd: $pkg\n");
     }
+
+    $self->run_isolated(sub {
+        copy_file("$cachedir$_", "$rootdir$_") for @files;
+    });
 
     my $fl = join(' ', @files);
 
@@ -1003,7 +1296,9 @@ sub ve_dpkg {
         die "internal error";
     }
 
-    foreach my $fn (@files) { unlink "$rootdir$fn"; }
+    $self->run_isolated(sub {
+        unlink "$rootdir$_" for @files;
+    });
 }
 
 sub ve_destroy {
@@ -1014,10 +1309,10 @@ sub ve_destroy {
 
     my $vestat = $self->ve_status();
     if ($vestat->{running}) {
-        $self->run_command("lxc-stop -n $veid --rcfile $conffile --kill");
+        $self->run_command("lxc-stop -n $veid -P $self->{working_dir} --rcfile $conffile --kill");
     }
 
-    rmtree $self->{rootfs};
+    $self->__rmtree_rootfs();
     unlink $self->{veconffile};
 }
 
@@ -1031,11 +1326,22 @@ sub ve_init {
 
     my $vestat = $self->ve_status();
     if ($vestat->{running}) {
-        $self->run_command("lxc-stop -n $veid --rcfile $conffile --kill");
+        $self->run_command("lxc-stop -n $veid -P $self->{working_dir} --rcfile $conffile --kill");
     }
 
-    rmtree $self->{rootfs};
-    mkpath $self->{rootfs};
+    $self->__rmtree_rootfs();
+    # recreate in the namespace, so the directory owner maps to root inside it
+    $self->run_isolated(sub { mkpath $self->{rootfs}; });
+}
+
+# Remove the rootfs tree. When unprivileged the contents are owned by mapped sub-ids, so we have
+# to delete them from inside the user namespace.
+sub __rmtree_rootfs {
+    my ($self) = @_;
+
+    return if !-d $self->{rootfs};
+
+    $self->run_isolated(sub { rmtree $self->{rootfs}; });
 }
 
 sub __deb_version_cmp {
@@ -1322,7 +1628,9 @@ sub install_init_script {
     my $base = basename($script);
     my $target = "$rootdir/etc/init.d/$base";
 
-    $self->run_command("install -m 0755 '$script' '$target'");
+    $self->run_isolated(sub {
+        copy_file($script, $target, 0755);
+    });
     if ($suiteinfo->{systemd}) {
         die "unable to install init script (system uses systemd)\n";
     } elsif ($suite eq 'trusty' || $suite eq 'precise') {
@@ -1343,6 +1651,9 @@ sub mask_systemd_unit {
 
 sub bootstrap {
     my ($self, $opts) = @_;
+
+    die "--device-skelleton requires root (mknod is unavailable in user namespaces)\n"
+        if $opts->{'device-skelleton'} && $self->{unprivileged};
 
     my $pkginfo = $self->pkginfo();
     my $veid = $self->{veid};
@@ -1440,12 +1751,7 @@ sub bootstrap {
 
     my $rootdir = $self->{rootfs};
 
-    # extract required packages first
     $self->logmsg("create basic environment\n");
-
-    if ($self->can_usr_merge()) {
-        $self->setup_usr_merge();
-    }
 
     my $compressor2opt = {
         'zst' => '--zstd',
@@ -1454,101 +1760,114 @@ sub bootstrap {
     };
     my $compressor_re = join('|', keys $compressor2opt->%*);
 
-    $self->logmsg("extract required packages to rootfs\n");
-    foreach my $p (@$required) {
-        my $filename = $self->getpkgfile($p);
-        my $content = $self->run_command("ar -t '$self->{cachedir}/$filename'", undef, 1);
-        if ($content =~ m/^(data.tar.($compressor_re))$/m) {
-            my $archive = $1;
-            my $tar_opts = "--keep-directory-symlink $compressor2opt->{$2}";
+    # everything below up to lxc-start touches the rootfs from outside the container; do it in
+    # one isolated subprocess so native Perl IO yields correct ownership without each call
+    # having to wrap in lxc-usernsexec
+    $self->run_isolated(sub {
+        if ($self->can_usr_merge()) {
+            $self->setup_usr_merge();
+        }
 
-            $self->run_command(
-                "ar -p '$self->{cachedir}/$filename' '$archive' | tar -C '$rootdir' -xf - $tar_opts"
-            );
+        $self->logmsg("extract required packages to rootfs\n");
+        foreach my $p (@$required) {
+            my $filename = $self->getpkgfile($p);
+            my $content = $self->run_command("ar -t '$self->{cachedir}/$filename'", undef, 1);
+            if ($content =~ m/^(data.tar.($compressor_re))$/m) {
+                my $archive = $1;
+                my $tar_opts = "--keep-directory-symlink $compressor2opt->{$2}";
+
+                $self->run_command(
+                    "ar -p '$self->{cachedir}/$filename' '$archive' | tar -C '$rootdir' -xf - $tar_opts"
+                );
+            } else {
+                die "unexpected error for $p: no data.tar.{xz,gz,zst} found...";
+            }
+        }
+
+        # fake dpkg status
+        my $data =
+            "Package: dpkg\n"
+            . "Version: $pkginfo->{dpkg}->{version}\n"
+            . "Status: install ok installed\n";
+
+        write_file($data, "$rootdir/var/lib/dpkg/status");
+        write_file("", "$rootdir/var/lib/dpkg/info/dpkg.list");
+        write_file("", "$rootdir/var/lib/dpkg/available");
+
+        $data = '';
+        if ($suiteinfo->{modern_apt_sources}) {
+            mkdir "$rootdir/etc/apt/sources.list.d";
+            my $origin = lc($suiteinfo->{origin});
+            my $keyring = $suiteinfo->{keyring} or die "missing keyring for origin '$origin'";
+            my @keep_sources = grep { $_->{keep} } $self->{sources}->@*;
+            my $uris = { map { $_->{source} => 1 } @keep_sources };
+
+            for my $uri (keys $uris->%*) {
+                my $sources = [grep { $_->{source} eq $uri } $self->{sources}->@*];
+
+                my $suites = join(' ', (map { $_->{suite} } $sources->@*));
+                my $unique_components =
+                    { map { $_ => 1 } (map { $_->{comp}->@* } $sources->@*) };
+                my $components = join(' ', (sort keys $unique_components->%*));
+
+                $data .= "\n" if $data ne '';
+                $data .= "Types: deb\n";
+                $data .= "URIs: $uri\n";
+                $data .= "Suites: $suites\n";
+                $data .= "Components: $components\n";
+                $data .= "Signed-By: $keyring\n";
+            }
+
+            write_file($data, "$rootdir/etc/apt/sources.list.d/${origin}.sources");
         } else {
-            die "unexpected error for $p: no data.tar.{xz,gz,zst} found...";
-        }
-    }
+            foreach my $ss (@{ $self->{sources} }) {
+                my $url = $ss->{source};
+                my $comp = join(' ', @{ $ss->{comp} });
+                $data .= "deb $url $ss->{suite} $comp\n\n";
+            }
 
-    # fake dpkg status
-    my $data =
-        "Package: dpkg\n"
-        . "Version: $pkginfo->{dpkg}->{version}\n"
-        . "Status: install ok installed\n";
-
-    write_file($data, "$rootdir/var/lib/dpkg/status");
-    write_file("", "$rootdir/var/lib/dpkg/info/dpkg.list");
-    write_file("", "$rootdir/var/lib/dpkg/available");
-
-    $data = '';
-    if ($suiteinfo->{modern_apt_sources}) {
-        mkdir "$rootdir/etc/apt/sources.list.d";
-        my $origin = lc($suiteinfo->{origin});
-        my $keyring = $suiteinfo->{keyring} or die "missing keyring for origin '$origin'";
-        my @keep_sources = grep { $_->{keep} } $self->{sources}->@*;
-        my $uris = { map { $_->{source} => 1 } @keep_sources };
-
-        for my $uri (keys $uris->%*) {
-            my $sources = [grep { $_->{source} eq $uri } $self->{sources}->@*];
-
-            my $suites = join(' ', (map { $_->{suite} } $sources->@*));
-            my $unique_components = { map { $_ => 1 } (map { $_->{comp}->@* } $sources->@*) };
-            my $components = join(' ', (sort keys $unique_components->%*));
-
-            $data .= "\n" if $data ne '';
-            $data .= "Types: deb\n";
-            $data .= "URIs: $uri\n";
-            $data .= "Suites: $suites\n";
-            $data .= "Components: $components\n";
-            $data .= "Signed-By: $keyring\n";
+            write_file($data, "$rootdir/etc/apt/sources.list");
         }
 
-        write_file($data, "$rootdir/etc/apt/sources.list.d/${origin}.sources");
-    } else {
-        foreach my $ss (@{ $self->{sources} }) {
-            my $url = $ss->{source};
-            my $comp = join(' ', @{ $ss->{comp} });
-            $data .= "deb $url $ss->{suite} $comp\n\n";
+        write_file("# UNCONFIGURED FSTAB FOR BASE SYSTEM\n", "$rootdir/etc/fstab", 0644);
+        write_file("localhost\n", "$rootdir/etc/hostname", 0644);
+        write_file("", "$rootdir/etc/resolv.conf", 0644);
+
+        if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{systemd}) {
+            # no need to configure loopback device
+            # FIXME: Debian (systemd based?) too?
+        } else {
+            mkdir "$rootdir/etc/network";
+            write_file(
+                "auto lo\niface lo inet loopback\n",
+                "$rootdir/etc/network/interfaces",
+                0644,
+            );
         }
 
-        write_file($data, "$rootdir/etc/apt/sources.list");
-    }
+        if ($opts->{'device-skelleton'}) {
+            $self->run_command("tar xzf '$devicetar' -C '$rootdir'");
+        }
 
-    $data = "# UNCONFIGURED FSTAB FOR BASE SYSTEM\n";
-    write_file($data, "$rootdir/etc/fstab", 0644);
+        write_file("LANG=\"C\"\n", "$rootdir/etc/default/locale", 0644);
 
-    write_file("localhost\n", "$rootdir/etc/hostname", 0644);
+        # fake init
+        rename("$rootdir/sbin/init", "$rootdir/sbin/init.org")
+            or die "failed to backup distro 'init' for manual diversion - $!";
+        copy_file($fake_init, "$rootdir/sbin/init", 0755);
+        copy_file($default_env, "$rootdir/sbin/defenv", 0755);
+    });
 
-    # avoid warnings about non-existent resolv.conf
-    write_file("", "$rootdir/etc/resolv.conf", 0644);
-
-    if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{systemd}) {
-        # no need to configure loopback device
-        # FIXME: Debian (systemd based?) too?
-    } else {
-        $data = "auto lo\niface lo inet loopback\n";
-        mkdir "$rootdir/etc/network";
-        write_file($data, "$rootdir/etc/network/interfaces", 0644);
-    }
-
-    # setup devices
-    $self->run_command("tar xzf '$devicetar' -C '$rootdir'") if $opts->{'device-skelleton'};
-
-    # avoid warnings about missing default locale
-    write_file("LANG=\"C\"\n", "$rootdir/etc/default/locale", 0644);
-
-    # fake init
-    rename("$rootdir/sbin/init", "$rootdir/sbin/init.org")
-        or die "failed to backup distro 'init' for manual diversion - $!";
-    $self->run_command("cp '$fake_init' '$rootdir/sbin/init'");
-
-    $self->run_command("cp '$default_env' '$rootdir/sbin/defenv'");
-
-    $self->run_command("lxc-start -n $veid -f $self->{veconffile}");
+    # use the working directory as lxcpath, the default under $HOME is often not traversable
+    # for the mapped ids of unprivileged containers
+    $self->run_command("lxc-start -n $veid -P $self->{working_dir} -f $self->{veconffile}");
 
     $self->logmsg("initialize ld cache\n");
     $self->ve_command("/sbin/ldconfig");
-    $self->run_command("ln -sf mawk '$rootdir/usr/bin/awk'");
+    $self->run_isolated(sub {
+        unlink "$rootdir/usr/bin/awk";
+        symln('mawk', "$rootdir/usr/bin/awk");
+    });
 
     $self->logmsg("installing packages\n");
 
@@ -1556,14 +1875,17 @@ sub bootstrap {
 
     $self->ve_dpkg('install', 'dpkg');
 
-    $self->run_command("ln -sf /usr/share/zoneinfo/UTC '$rootdir/etc/localtime'");
-
-    $self->run_command("ln -sf bash '$rootdir/bin/sh'");
+    $self->run_isolated(sub {
+        unlink "$rootdir/etc/localtime";
+        symln('/usr/share/zoneinfo/UTC', "$rootdir/etc/localtime");
+        unlink "$rootdir/bin/sh";
+        symln('bash', "$rootdir/bin/sh");
+    });
 
     $self->ve_dpkg('install', 'libc6');
     $self->ve_dpkg('install', 'perl-base');
 
-    unlink "$rootdir/usr/bin/awk";
+    $self->run_isolated(sub { unlink "$rootdir/usr/bin/awk"; });
 
     $self->ve_dpkg('install', 'mawk');
     $self->ve_dpkg('install', 'debconf');
@@ -1573,30 +1895,39 @@ sub bootstrap {
         $self->ve_dpkg('unpack', $p);
     }
 
-    rename("$rootdir/sbin/init.org", "$rootdir/sbin/init")
-        or die "failed to restore distro 'init' for actual diversion - $!";
+    $self->run_isolated(sub {
+        rename("$rootdir/sbin/init.org", "$rootdir/sbin/init")
+            or die "failed to restore distro 'init' for actual diversion - $!";
+    });
     $self->ve_divert_add("/sbin/init");
-    $self->run_command("cp '$fake_init' '$rootdir/sbin/init'");
+    $self->run_isolated(sub {
+        unlink "$rootdir/sbin/init";
+        copy_file($fake_init, "$rootdir/sbin/init", 0755);
+    });
 
     # disable service activation
     $self->ve_divert_add("/usr/sbin/policy-rc.d");
-    $data = "#!/bin/sh\nexit 101\n";
-    write_file($data, "$rootdir/usr/sbin/policy-rc.d", 755);
+    $self->run_isolated(sub {
+        write_file("#!/bin/sh\nexit 101\n", "$rootdir/usr/sbin/policy-rc.d", 0755);
+    });
 
     # disable start-stop-daemon
     $self->ve_divert_add("/sbin/start-stop-daemon");
-    $data = <<EOD;
-#!/bin/sh
-echo
-echo \"Warning: Fake start-stop-daemon called, doing nothing\"
-EOD
-    write_file($data, "$rootdir/sbin/start-stop-daemon", 0755);
+    $self->run_isolated(sub {
+        write_file(
+            "#!/bin/sh\necho\necho \"Warning: Fake start-stop-daemon called, doing nothing\"\n",
+            "$rootdir/sbin/start-stop-daemon",
+            0755,
+        );
+    });
 
     # disable udevd
     $self->ve_divert_add("/sbin/udevd");
 
     if ($suite eq 'etch') {
-        write_file("NO_START=1\n", "$rootdir/etc/default/apache2"); # disable apache2 startup
+        $self->run_isolated(sub {
+            write_file("NO_START=1\n", "$rootdir/etc/default/apache2"); # disable apache2 startup
+        });
     }
 
     $self->logmsg("configure required packages\n");
@@ -1604,21 +1935,22 @@ EOD
 
     # set postfix defaults
     if ($mta eq 'postfix') {
-        $data = "postfix postfix/main_mailer_type select Local only\n";
-        $self->ve_debconfig_set($data);
-
-        $data = "postmaster: root\nwebmaster: root\n";
-        write_file($data, "$rootdir/etc/aliases");
+        $self->ve_debconfig_set("postfix postfix/main_mailer_type select Local only\n");
+        $self->run_isolated(sub {
+            write_file("postmaster: root\nwebmaster: root\n", "$rootdir/etc/aliases");
+        });
     }
 
     if ($suite eq 'jaunty') {
         # jaunty does not create /var/run/network, so network startup fails.
         # so we do not use tmpfs for /var/run and /var/lock
-        $self->run_command(
-            "sed -e 's/RAMRUN=yes/RAMRUN=no/' -e 's/RAMLOCK=yes/RAMLOCK=no/'  -i $rootdir/etc/default/rcS"
-        );
-        # and create the directory here
-        $self->run_command("mkdir $rootdir/var/run/network");
+        $self->run_isolated(sub {
+            $self->run_command(
+                "sed -e 's/RAMRUN=yes/RAMRUN=no/' -e 's/RAMLOCK=yes/RAMLOCK=no/'  -i $rootdir/etc/default/rcS"
+            );
+            mkdir("$rootdir/var/run/network")
+                or die "unable to create '/var/run/network' - $!\n";
+        });
     }
 
     # unpack base packages
@@ -1636,27 +1968,28 @@ EOD
     $self->logmsg("configure important packages\n");
     $self->ve_command("dpkg --force-confold --skip-same-version --configure -a");
 
-    if (-d "$rootdir/etc/event.d") {
-        unlink <$rootdir/etc/event.d/tty*>;
-    }
-
-    if (-f "$rootdir/etc/inittab") {
-        $self->run_command("sed -i -e '/getty\\s38400\\stty[23456]/d' '$rootdir/etc/inittab'");
-    }
-
-    # Link /etc/mtab to /proc/mounts, so df and friends will work:
-    unlink "$rootdir/etc/mtab";
+    $self->run_isolated(sub {
+        if (-d "$rootdir/etc/event.d") {
+            unlink <$rootdir/etc/event.d/tty*>;
+        }
+        if (-f "$rootdir/etc/inittab") {
+            $self->run_command(
+                ['sed', '-i', '-e', '/getty\s38400\stty[23456]/d', "$rootdir/etc/inittab"]);
+        }
+        # Link /etc/mtab to /proc/mounts, so df and friends will work
+        unlink "$rootdir/etc/mtab";
+    });
     $self->ve_command("ln -s /proc/mounts /etc/mtab");
 
     # reset password
     $self->ve_command("usermod -L root");
 
     if ($mta eq 'postfix') {
-        $data = "postfix postfix/main_mailer_type select No configuration\n";
-        $self->ve_debconfig_set($data);
-
-        unlink "$rootdir/etc/mailname";
-        write_file($postfix_main_cf, "$rootdir/etc/postfix/main.cf");
+        $self->ve_debconfig_set("postfix postfix/main_mailer_type select No configuration\n");
+        $self->run_isolated(sub {
+            unlink "$rootdir/etc/mailname";
+            write_file($postfix_main_cf, "$rootdir/etc/postfix/main.cf");
+        });
     }
 
     if (!$opts->{minimal}) {
@@ -1669,47 +2002,53 @@ EOD
         $self->ve_command("dpkg --force-confold --skip-same-version --configure -a");
     }
 
-    # disable HWCLOCK access
-    $self->run_command("echo 'HWCLOCKACCESS=no' >> '$rootdir/etc/default/rcS'");
+    $self->run_isolated(sub {
+        # disable HWCLOCK access
+        my $rcS = "$rootdir/etc/default/rcS";
+        my $existing = -f $rcS ? read_file($rcS) : '';
+        write_file($existing . "HWCLOCKACCESS=no\n", $rcS);
+    });
 
     # disable hald
     $self->ve_divert_add("/usr/sbin/hald");
 
-    # disable /dev/urandom init
-    $self->run_command("install -m 0755 '$script_init_urandom' '$rootdir/etc/init.d/urandom'");
+    $self->run_isolated(sub {
+        # disable /dev/urandom init
+        copy_file($script_init_urandom, "$rootdir/etc/init.d/urandom", 0755);
+
+        my $cmd = 'find';
+        $cmd .= " '$rootdir/etc/sysctl.conf'" if -e "$rootdir/etc/sysctl.conf";
+        $cmd .= " '$rootdir/etc/sysctl.d/'" if -d "$rootdir/etc/sysctl.d";
+        $cmd .= ' -type f -iname \'*.conf\' -print0';
+        $cmd .= '| xargs -0 --no-run-if-empty -- sed';
+        $cmd .= ' -e \'s/^\(kernel\.printk.*\)/#\1/\'';
+        $cmd .= ' -e \'s/^\(kernel\.maps_protect.*\)/#\1/\'';
+        $cmd .= ' -e \'s/^\(fs\.inotify\.max_user_watches.*\)/#\1/\'';
+        $cmd .= ' -e \'s/^\(vm\.mmap_min_addr.*\)/#\1/\'';
+        $cmd .= " -i";
+        $self->run_command($cmd);
+
+        my $bindv6only = "$rootdir/etc/sysctl.d/bindv6only.conf";
+        if (-f $bindv6only) {
+            $self->run_command(
+                ['sed', '-e', 's/^\(net\.ipv6\.bindv6only.*\)/#\1/', '-i', $bindv6only]);
+        }
+    });
 
     if ($suite eq 'etch' || $suite eq 'hardy' || $suite eq 'intrepid' || $suite eq 'jaunty') {
         # avoid klogd start
         $self->ve_divert_add("/sbin/klogd");
     }
 
-    my $cmd = 'find';
-    $cmd .= " '$rootdir/etc/sysctl.conf'" if -e "$rootdir/etc/sysctl.conf";
-    $cmd .= " '$rootdir/etc/sysctl.d/'" if -d "$rootdir/etc/sysctl.d";
-    $cmd .= ' -type f -iname \'*.conf\' -print0';
-    $cmd .= '| xargs -0 --no-run-if-empty -- sed';
-    $cmd .= ' -e \'s/^\(kernel\.printk.*\)/#\1/\'';
-    $cmd .= ' -e \'s/^\(kernel\.maps_protect.*\)/#\1/\'';
-    $cmd .= ' -e \'s/^\(fs\.inotify\.max_user_watches.*\)/#\1/\'';
-    $cmd .= ' -e \'s/^\(vm\.mmap_min_addr.*\)/#\1/\'';
-    $cmd .= " -i";
-    $self->run_command($cmd);
-
-    my $bindv6only = "$rootdir/etc/sysctl.d/bindv6only.conf";
-    if (-f $bindv6only) {
-        $cmd = 'sed';
-        $cmd .= ' -e \'s/^\(net\.ipv6\.bindv6only.*\)/#\1/\'';
-        $cmd .= " -i '$bindv6only'";
-        $self->run_command($cmd);
-    }
-
     if ($suiteinfo->{systemd}) {
-        for my $unit (
-            qw(sys-kernel-config.mount sys-kernel-debug.mount systemd-journald-audit.socket)
-        ) {
-            $self->logmsg("Masking problematic systemd unit '$unit'\n");
-            $self->mask_systemd_unit($unit);
-        }
+        $self->run_isolated(sub {
+            for my $unit (
+                qw(sys-kernel-config.mount sys-kernel-debug.mount systemd-journald-audit.socket)
+            ) {
+                $self->logmsg("Masking problematic systemd unit '$unit'\n");
+                $self->mask_systemd_unit($unit);
+            }
+        });
     }
 }
 
@@ -1727,10 +2066,10 @@ sub enter {
     }
 
     if (!$vestat->{running}) {
-        $self->run_command("lxc-start -n $veid -f $conffile");
+        $self->run_command("lxc-start -n $veid -P $self->{working_dir} -f $conffile");
     }
 
-    system("lxc-attach -n $veid --rcfile $conffile --clear-env");
+    system("lxc-attach -n $veid -P $self->{working_dir} --rcfile $conffile --clear-env");
 }
 
 sub ve_mysql_command {
@@ -1830,7 +2169,13 @@ sub task_mysql {
             . "FLUSH PRIVILEGES;\n";
         $self->ve_mysql_bootstrap($sql);
 
-        write_file("[client]\nuser=root\npassword=\"$rpw\"\n", "$rootdir/root/.my.cnf", 0600);
+        $self->run_isolated(sub {
+            write_file(
+                "[client]\nuser=root\npassword=\"$rpw\"\n",
+                "$rootdir/root/.my.cnf",
+                0600,
+            );
+        });
         if ($password eq 'random') {
             $self->install_init_script($script_mysql_randompw, 2, 20);
         }
@@ -1865,7 +2210,7 @@ sub task_php {
             warn "WARN: did not found any php.ini to set the memlimit!\n";
             return;
         }
-        $self->run_command($sed_cmd);
+        $self->run_isolated(sub { $self->run_command($sed_cmd); });
     }
 }
 
