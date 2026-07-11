@@ -1,0 +1,3 @@
+Tests: bootstrap-trixie-minimal
+Depends: @, uidmap, dbus-user-session
+Restrictions: needs-internet, allow-stderr, isolation-machine, needs-root

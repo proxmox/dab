@@ -1,0 +1,110 @@
+#!/bin/sh
+# autopkgtest: build a minimal trixie image as an unprivileged user and verify
+# that the produced template tarball has the expected first entry, that all
+# archive entries are owned by uid/gid 0, and that the archive itself is owned
+# by the build user (not by the host's sub-id base).
+#
+# Run locally with:
+#   autopkgtest --apt-upgrade ./dab_*_all.deb -- qemu /path/to/trixie.img
+
+set -eu
+
+TESTUSER="dabtest"
+SUBID_BASE=200000
+SUBID_COUNT=65536
+
+if ! id "$TESTUSER" >/dev/null 2>&1; then
+    useradd --create-home --shell /bin/sh "$TESTUSER"
+fi
+
+if ! grep -q "^${TESTUSER}:" /etc/subuid; then
+    echo "${TESTUSER}:${SUBID_BASE}:${SUBID_COUNT}" >> /etc/subuid
+fi
+if ! grep -q "^${TESTUSER}:" /etc/subgid; then
+    echo "${TESTUSER}:${SUBID_BASE}:${SUBID_COUNT}" >> /etc/subgid
+fi
+
+# allow the user's systemd manager to run without a login session, so the
+# cgroup delegation that lxc-start relies on is in place.
+loginctl enable-linger "$TESTUSER"
+TESTUID=$(id -u "$TESTUSER")
+# enable-linger starts user@.service asynchronously; wait for its runtime
+# directory and session bus, which lxc-start needs for cgroup delegation.
+for _ in $(seq 30); do
+    [ -S "/run/user/$TESTUID/bus" ] && break
+    sleep 1
+done
+if [ ! -S "/run/user/$TESTUID/bus" ]; then
+    echo "FAIL: user manager for '$TESTUSER' did not come up" >&2
+    exit 1
+fi
+
+# do not build under AUTOPKGTEST_TMP: its ancestors are often mode 0700, which neither the
+# test user nor the sub-ids (container root) can traverse; /var/tmp is world-traversable
+BASEDIR=$(mktemp -d /var/tmp/dab-bootstrap-test.XXXXXX)
+trap 'rm -rf "$BASEDIR"' EXIT
+chmod 755 "$BASEDIR"
+WORKDIR="$BASEDIR/build"
+mkdir -p "$WORKDIR"
+
+cat > "$WORKDIR/dab.conf" <<'EOF'
+Suite: trixie
+Architecture: amd64
+Name: smoke
+Version: 0.0.1
+Section: system
+Maintainer: Autopkgtest <autopkgtest@invalid>
+Description: minimal smoke test image
+ Built unprivileged for autopkgtest verification.
+EOF
+
+chown -R "${TESTUSER}:${TESTUSER}" "$WORKDIR"
+
+# use a login shell so HOME points at the test user's home, and point the
+# session at the lingering user manager for lxc cgroup delegation
+runuser -l "$TESTUSER" -s /bin/sh -c "
+set -eu
+export PATH=\"\$PATH:/usr/sbin:/sbin\" # dab is installed in /usr/sbin
+export XDG_RUNTIME_DIR=/run/user/$TESTUID
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$TESTUID/bus
+cd '$WORKDIR'
+dab init
+dab bootstrap --minimal --no-ssh --mta none
+dab finalize
+"
+
+ARCHIVE=$(find "$WORKDIR" -maxdepth 1 -name 'debian-*-smoke_*_amd64.tar.gz' | head -n1)
+if [ -z "$ARCHIVE" ] || [ ! -f "$ARCHIVE" ]; then
+    echo "FAIL: no archive produced under $WORKDIR" >&2
+    ls -la "$WORKDIR" >&2
+    exit 1
+fi
+
+# the archive was written by the compressor running as $TESTUSER, so it must
+# be owned by that user (not by the sub-id base)
+owner=$(stat -c %u "$ARCHIVE")
+expected=$(id -u "$TESTUSER")
+if [ "$owner" != "$expected" ]; then
+    echo "FAIL: archive '$ARCHIVE' owned by uid $owner, expected $expected" >&2
+    exit 1
+fi
+
+# the appliance descriptor must be the first entry, so consumers can read it
+# without scanning the rest of the archive.
+first=$(tar tzf "$ARCHIVE" | head -n1)
+if [ "$first" != "./etc/appliance.info" ]; then
+    echo "FAIL: first archive entry is '$first', expected './etc/appliance.info'" >&2
+    exit 1
+fi
+
+# every entry must be owned by ids inside the mapped container range (0..65533); 65534
+# (the overflow id) or higher means a file was created with unmapped host ids leaking in
+bad=$(tar tzvf "$ARCHIVE" --numeric-owner \
+    | awk '{ split($2, o, "/"); if (o[1] >= 65534 || o[2] >= 65534) { print; exit } }')
+if [ -n "$bad" ]; then
+    echo "FAIL: entry with unmapped owner found in archive:" >&2
+    echo "  $bad" >&2
+    exit 1
+fi
+
+echo "PASS: $ARCHIVE"

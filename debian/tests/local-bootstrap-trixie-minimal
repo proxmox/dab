@@ -1,0 +1,132 @@
+#!/bin/sh
+# Local smoke test: build a minimal trixie image as the current unprivileged
+# user and verify the produced template tarball. Intended for dev iteration -
+# does not modify any system state (no useradd, no /etc/subuid edits, no
+# loginctl) and cleans up after itself on success.
+#
+# Pre-requisites on the dev host:
+#   - subuid + subgid range >= 65536 already allocated for the current user
+#   - 'dab' on PATH (or DAB=/path/to/dab to test an uninstalled build)
+#   - lxc + uidmap packages installed
+#
+# Usage:
+#   ./debian/tests/local-bootstrap-trixie-minimal
+#   KEEP=1 ./debian/tests/local-bootstrap-trixie-minimal   # keep workdir even on success
+
+set -eu
+
+if [ "$(id -u)" = "0" ]; then
+    echo "this test exercises the unprivileged path; do not run as root" >&2
+    exit 1
+fi
+
+USER_NAME=$(id -un)
+USER_ID=$(id -u)
+
+# entries may be keyed on the user name or the numeric uid
+if ! grep -qE "^(${USER_NAME}|${USER_ID}):" /etc/subuid 2>/dev/null \
+   || ! grep -qE "^(${USER_NAME}|${USER_ID}):" /etc/subgid 2>/dev/null
+then
+    echo "no sub-id range allocated for '${USER_NAME}' in /etc/subuid + /etc/subgid" >&2
+    echo "ask root to add one, for example:" >&2
+    echo "    echo '${USER_NAME}:200000:65536' | sudo tee -a /etc/subuid /etc/subgid" >&2
+    exit 1
+fi
+
+# If the script lives in a dab source checkout, prefer the in-tree dab over
+# whatever is installed system-wide: perl -I picks up the in-tree module and
+# DAB_SHARE_DIR the in-tree scripts + device archive. Use perl -I instead of
+# exporting PERL5LIB so the module override only applies to dab itself: child
+# processes must not inherit it, lxc-start aborts when its (Perl) hook scripts
+# see a PERL5LIB.
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+REPO_ROOT=$(cd "$SCRIPT_DIR/../.." 2>/dev/null && pwd || true)
+DAB_INC=""
+if [ -z "${DAB:-}" ] && [ -n "$REPO_ROOT" ] \
+   && [ -x "$REPO_ROOT/dab" ] && [ -f "$REPO_ROOT/PVE/DAB.pm" ]
+then
+    DAB="$REPO_ROOT/dab"
+    DAB_INC="$REPO_ROOT"
+fi
+DAB="${DAB:-dab}"
+if ! command -v "$DAB" >/dev/null 2>&1 && [ ! -x "$DAB" ]; then
+    echo "dab not found (set DAB=/path/to/dab to point at an uninstalled build)" >&2
+    exit 1
+fi
+RESOLVED_DAB=$(command -v "$DAB" 2>/dev/null || readlink -f "$DAB")
+echo "using dab: $RESOLVED_DAB"
+
+dab_run() {
+    if [ -n "$DAB_INC" ]; then
+        DAB_SHARE_DIR="$DAB_INC" perl -I "$DAB_INC" "$DAB" "$@"
+    else
+        "$DAB" "$@"
+    fi
+}
+
+WORKDIR=$(mktemp -d -t dab-smoke.XXXXXX)
+# mktemp creates the directory with mode 0700, but the sub-ids (container root)
+# must be able to traverse the working directory path
+chmod 711 "$WORKDIR"
+
+cleanup() {
+    rc=$?
+    if [ "$rc" -ne 0 ] || [ -n "${KEEP:-}" ]; then
+        echo "leaving working directory for inspection: $WORKDIR" >&2
+    elif [ -d "$WORKDIR" ]; then
+        ( cd "$WORKDIR" && dab_run dist-clean ) >/dev/null 2>&1 || true
+        rm -rf "$WORKDIR" || echo "warning: could not fully remove $WORKDIR" >&2
+    fi
+    exit "$rc"
+}
+trap cleanup EXIT INT TERM
+
+cat > "$WORKDIR/dab.conf" <<'EOF'
+Suite: trixie
+Architecture: amd64
+Name: smoke
+Version: 0.0.1
+Section: system
+Maintainer: Local Smoke Test <local@invalid>
+Description: minimal smoke test image
+ Built unprivileged for local verification.
+EOF
+
+(
+    cd "$WORKDIR"
+    dab_run init
+    dab_run bootstrap --minimal --no-ssh --mta none
+    dab_run finalize
+)
+
+ARCHIVE=$(find "$WORKDIR" -maxdepth 1 -name 'debian-*-smoke_*_amd64.tar.gz' | head -n1)
+if [ -z "$ARCHIVE" ] || [ ! -f "$ARCHIVE" ]; then
+    echo "FAIL: no archive produced under $WORKDIR" >&2
+    ls -la "$WORKDIR" >&2
+    exit 1
+fi
+
+owner=$(stat -c %u "$ARCHIVE")
+expected=$(id -u)
+if [ "$owner" != "$expected" ]; then
+    echo "FAIL: archive '$ARCHIVE' owned by uid $owner, expected $expected" >&2
+    exit 1
+fi
+
+first=$(tar tzf "$ARCHIVE" | head -n1)
+if [ "$first" != "./etc/appliance.info" ]; then
+    echo "FAIL: first archive entry is '$first', expected './etc/appliance.info'" >&2
+    exit 1
+fi
+
+# every entry must be owned by ids inside the mapped container range (0..65533); 65534
+# (the overflow id) or higher means a file was created with unmapped host ids leaking in
+bad=$(tar tzvf "$ARCHIVE" --numeric-owner \
+    | awk '{ split($2, o, "/"); if (o[1] >= 65534 || o[2] >= 65534) { print; exit } }')
+if [ -n "$bad" ]; then
+    echo "FAIL: entry with unmapped owner found in archive:" >&2
+    echo "  $bad" >&2
+    exit 1
+fi
+
+echo "PASS: $ARCHIVE"
