@@ -1,3 +1,34 @@
+dab (3.9.0) trixie; urgency=medium
+
+  * move shared assets from /usr/lib/dab to /usr/share/dab, following the FHS
+    placement for architecture independent data.
+
+  * allow overriding the shared asset directory through the DAB_SHARE_DIR
+    environment variable, mainly to run dab from a source checkout.
+
+  * ensure file permissions inside built templates do not depend on the build
+    user's umask.
+
+  * add support for unprivileged (rootless) appliance builds: root file
+    system operations run inside user namespaces backed by the invoking
+    user's sub-id ranges, the container itself through lxc's unprivileged
+    id-mapping. Needs at least 65536 sub-ids and the uidmap package; the
+    resulting templates are identical to those of a root build.
+
+  * host the container root file system and runtime state in a work
+    directory, configurable through the new WorkDir property or the --workdir
+    CLI option. Unprivileged builds default to a per-user directory below
+    /var/tmp, as the mapped container ids must be able to traverse the rootfs
+    path, which home directories normally prevent; all other build state
+    stays in the project directory. Run dist-clean first to move an existing
+    build.
+
+  * add a cp command to copy files from the host into the appliance with
+    correct ownership, as direct writes into the root file system are not
+    possible for unprivileged builds.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 14 Jul 2026 12:52:31 +0200
+
 dab (3.8.0) stable; urgency=medium
 
   * add a '--no-ssh' option to dab bootstrap to disable ssh packages that are
