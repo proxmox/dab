@@ -397,8 +397,13 @@ sub run_command {
 # The closure may return any JSON-serializable value; that value is round-tripped through a pipe
 # and returned to the caller. Errors raised in the closure are likewise propagated and re-raised
 # in the caller's process.
+#
+# With the 'container_idmap' option set, only the sub-id range is mapped, without the invoking
+# user; the closure then observes the same access permissions as processes of the container.
 sub run_isolated {
-    my ($self, $code) = @_;
+    my ($self, $code, $opts) = @_;
+
+    $opts //= {};
 
     # resolve before forking, so a missing sub-id allocation fails with a clean error
     my $idmap = $self->{unprivileged} ? $self->__idmap() : undef;
@@ -470,29 +475,18 @@ sub run_isolated {
     my $setup_err;
     if ($n && $self->{unprivileged}) {
         my ($egid) = split(/\s+/, $));
+        # map the sub-id range to 0..count and additionally the invoking user right after it,
+        # so the child can still access the caller's files (package cache, working directory)
+        # as namespace-root via CAP_DAC_OVERRIDE; not mapping the invoking user replicates the
+        # more restricted view of the container's processes instead
+        my @extra_uid = $opts->{container_idmap} ? () : ($idmap->{count}, $>, 1);
+        my @extra_gid = $opts->{container_idmap} ? () : ($idmap->{count}, $egid, 1);
         eval {
-            # map the sub-id range to 0..count and additionally the invoking user right after
-            # it, so the child can still access the caller's files (package cache, working
-            # directory) as namespace-root via CAP_DAC_OVERRIDE
             $self->run_command([
-                'newuidmap',
-                $pid,
-                0,
-                $idmap->{uid_base},
-                $idmap->{count},
-                $idmap->{count},
-                $>,
-                1,
+                'newuidmap', $pid, 0, $idmap->{uid_base}, $idmap->{count}, @extra_uid,
             ]);
             $self->run_command([
-                'newgidmap',
-                $pid,
-                0,
-                $idmap->{gid_base},
-                $idmap->{count},
-                $idmap->{count},
-                $egid,
-                1,
+                'newgidmap', $pid, 0, $idmap->{gid_base}, $idmap->{count}, @extra_gid,
             ]);
         };
         $setup_err = $@;
@@ -1418,6 +1412,37 @@ sub __rmtree_rootfs {
     $self->run_isolated(sub { rmtree $self->{rootfs}; });
 }
 
+# For unprivileged builds the container's mapped ids must be able to traverse the path leading
+# to the root file system, else lxc-start fails in ways that are hard to diagnose; check upfront
+# with the container's restricted view and fail with actionable guidance.
+sub __assert_build_dir_traversable {
+    my ($self) = @_;
+
+    return if !$self->{unprivileged};
+
+    my $dir = $self->{build_dir};
+    my $blocked = $self->run_isolated(
+        sub {
+            # perl's -x assumes the root exception for euid 0, so query the kernel directly,
+            # which correctly accounts for the ids that are not mapped here
+            my $path = '';
+            for my $part (split('/', $dir)) {
+                next if $part eq '';
+                $path .= "/$part";
+                return $path if !POSIX::access($path, POSIX::X_OK());
+            }
+            return undef;
+        },
+        { container_idmap => 1 },
+    );
+    return if !defined($blocked);
+
+    my $idmap = $self->__idmap();
+    die "the container's mapped ids cannot traverse '$blocked' -"
+        . " place the build somewhere world-traversable with the WorkDir option or --workdir,"
+        . " or grant traversal, for example: setfacl -m u:$idmap->{uid_base}:x '$blocked'\n";
+}
+
 sub __deb_version_cmp {
     my ($cur, $op, $new) = @_;
 
@@ -1728,6 +1753,8 @@ sub bootstrap {
 
     die "--device-skelleton requires root (mknod is unavailable in user namespaces)\n"
         if $opts->{'device-skelleton'} && $self->{unprivileged};
+
+    $self->__assert_build_dir_traversable();
 
     my $pkginfo = $self->pkginfo();
     my $veid = $self->{veid};
