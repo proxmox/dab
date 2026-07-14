@@ -3,6 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
 Build-Depends: debhelper-compat (= 13),
+               libpod-parser-perl,
                libuuid-perl,
                perl,
 Standards-Version: 4.6.2
