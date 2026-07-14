@@ -1,3 +1,12 @@
+dab (3.9.1) trixie; urgency=medium
+
+  * fix container state detection for long appliance names: lxc hashes the
+    command socket name once it exceeds the socket path length limit, making
+    finalize abort with 've not running' while the container was up; query
+    lxc-info instead of scanning /proc/net/unix.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 14 Jul 2026 23:23:10 +0200
+
 dab (3.9.0) trixie; urgency=medium
 
   * move shared assets from /usr/lib/dab to /usr/share/dab, following the FHS
