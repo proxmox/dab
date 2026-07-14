@@ -29,7 +29,7 @@ my $commands = {
 };
 
 sub print_usage {
-    print STDERR "USAGE: dab <command> [parameters]\n\n";
+    print STDERR "USAGE: dab [--workdir <dir>] <command> [parameters]\n\n";
 
     for my $cmd (sort keys %$commands) {
         if (my $opts = $commands->{$cmd}) {
@@ -48,6 +48,13 @@ sub fatal_usage {
 
     exit(-1);
 }
+
+my $global_opts = {};
+Getopt::Long::Configure('require_order'); # stop at the command, its own options follow
+if (!GetOptions($global_opts, 'workdir=s')) {
+    fatal_usage();
+}
+Getopt::Long::Configure('permute'); # restore the default for the per-command parsers
 
 if (scalar(@ARGV) == 0) {
     fatal_usage("no command specified");
@@ -68,7 +75,7 @@ if (!$cmd) {
 my $dab;
 
 sub dab : prototype() { # make it a directly as `dab->foo()` callable singleton
-    $dab = PVE::DAB->new() if !$dab;
+    $dab = PVE::DAB->new(undef, $global_opts) if !$dab;
     return $dab;
 }
 
@@ -249,7 +256,10 @@ dab - Debian LXC Appliance Builder
 
 =over
 
-=item B<dab> I<command> I<[OPTIONS]>
+=item B<dab> I<[--workdir <dir>]> I<command> I<[OPTIONS]>
+
+The optional C<--workdir> overrides the C<WorkDir> configuration property, see
+the CONFIGURATION section.
 
 =item B<dab init>
 
@@ -436,8 +446,11 @@ This script can either run as root, or as a regular user. When run as a
 regular user, the build uses an unprivileged container and user namespaces.
 This requires sub-id ranges of at least 65536 IDs allocated for that user in
 C</etc/subuid> and C</etc/subgid>, the C<uidmap> package, and that every
-component of the working directory path can be traversed by the sub-ids
-(other-executable mode bit).
+component of the path to the container root file system can be traversed by
+the sub-ids (other-executable mode bit). Unprivileged builds therefore place
+the root file system below C</var/tmp/dab-E<lt>userE<gt>> by default; the
+C<WorkDir> configuration property or the C<--workdir> option select a
+different location.
 
 It is still not recommended to build appliances on a production machine with
 running containers, use a virtual machine or a dedicated host for that.
@@ -482,6 +495,17 @@ package versions are available.
 =item B<CacheDir>: I<path>
 
 Allows you to specify the directory where downloaded packages are cached.
+
+=item B<WorkDir>: I<path>
+
+Place the container root file system and runtime state below the given
+directory, inside a subdirectory named after the target. Unprivileged builds
+require every path component leading to the root file system to be
+traversable by the container's sub-ids, which a restricted home directory
+does not allow, so they default to C</var/tmp/dab-E<lt>userE<gt>>; root
+builds default to the current working directory. The C<--workdir> command
+line option overrides this property. A changed work directory only applies
+to new allocations, run C<dab dist-clean> first to move an existing build.
 
 =item B<Mirror:> I<SRCURL> => I<DSTURL>
 

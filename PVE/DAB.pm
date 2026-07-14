@@ -595,6 +595,27 @@ sub __sample_config {
     return $data;
 }
 
+sub __default_workdir_base {
+    return '/var/tmp/dab-' . (getpwuid($>) // $>);
+}
+
+# The default work directory base has a predictable name inside the world-writable /var/tmp, so
+# refuse to use it if another local user squatted the path (or planted a symbolic link) before
+# the first build of the invoking user created it. This is not racy: once the directory
+# verifies as owned by the user, the sticky bit of /var/tmp prevents other users from replacing
+# the entry, and its 0711 mode prevents touching anything inside.
+sub __assert_owned_dir {
+    my ($dir) = @_;
+
+    die "'$dir' is a symbolic link, refusing to use it as work directory\n" if -l $dir;
+
+    my @st = stat($dir);
+    die "cannot stat '$dir' - $!\n" if !@st;
+    die "work directory '$dir' is not owned by the current user (owner has uid $st[4])\n"
+        if $st[4] != $>;
+    die "work directory '$dir' is writable by others\n" if $st[2] & 0002;
+}
+
 sub __allocate_ve {
     my ($self) = @_;
 
@@ -607,10 +628,62 @@ sub __allocate_ve {
 
     $self->{working_dir} = getcwd;
     $self->{veconffile} = "$self->{working_dir}/config";
-    $self->{rootfs} = "$self->{working_dir}/rootfs";
+
+    # the work directory hosts the container root file system and runtime state, so that those
+    # can live outside of restricted (home) directories for unprivileged builds; default to a
+    # per-user directory below the world-traversable /var/tmp for those, as any place below the
+    # user's home is normally not traversable for the container's mapped ids
+    my $workdir = $self->{cli_opts}->{workdir} // $self->{config}->{workdir};
+    $workdir //= __default_workdir_base() if $self->{unprivileged};
+
+    if ($workdir) {
+        $workdir = "$self->{working_dir}/$workdir" if $workdir !~ m|^/|;
+        my $base = $workdir;
+        my $default_base = $base eq __default_workdir_base();
+        die "'$base' is a symbolic link, refusing to use it as work directory\n"
+            if $default_base && -l $base;
+        $workdir .= "/$self->{targetname}"; # allow sharing one work directory across projects
+        my @created = mkpath($workdir, 0, 0711);
+        chmod(0711, @created) if @created; # mkpath modes get masked by the umask
+        die "work directory '$workdir' does not exist and could not be created\n"
+            if !-d $workdir;
+
+        if ($default_base) {
+            __assert_owned_dir($base);
+        } else {
+            # explicitly configured bases may be shared or user-managed, but if others can
+            # write to the base they must not be able to swap the per-target entry underneath
+            # us, which only the sticky bit prevents then
+            my @st = stat($base);
+            die "cannot stat work directory '$base' - $!\n" if !@st;
+            die "work directory '$base' is writable by others without the sticky bit set\n"
+                if ($st[2] & 0002) && !($st[2] & 01000);
+        }
+        __assert_owned_dir($workdir);
+        $self->{build_dir} = $workdir;
+    } else {
+        $self->{build_dir} = $self->{working_dir};
+    }
+    $self->{rootfs} = "$self->{build_dir}/rootfs";
 
     if ($cid) {
         $self->{veid} = $cid;
+        # the root file system location recorded at allocation time is authoritative, lxc
+        # mounts that path; adopt it so that changing the work directory of an existing
+        # allocation cannot orphan the current root file system
+        if (
+            -f $self->{veconffile}
+            && read_file($self->{veconffile}) =~ m|^lxc\.rootfs\.path = (\S+)$|m
+        ) {
+            my $allocated_rootfs = $1;
+            if ($allocated_rootfs ne $self->{rootfs}) {
+                $self->logmsg("note: keeping root file system at '$allocated_rootfs' from the"
+                    . " existing allocation, run dist-clean first to move the work directory\n"
+                );
+                $self->{rootfs} = $allocated_rootfs;
+                $self->{build_dir} = dirname($allocated_rootfs);
+            }
+        }
         $self->__assert_config_compat();
         return $cid;
     }
@@ -723,13 +796,14 @@ sub get_target_name {
 }
 
 sub new {
-    my ($class, $config) = @_;
+    my ($class, $config, $cli_opts) = @_;
 
     $class = ref($class) || $class;
     $config = read_config('dab.conf') if !$config;
 
     my $self = {
         config => $config,
+        cli_opts => $cli_opts // {},
     };
     bless $self, $class;
 
@@ -1034,7 +1108,7 @@ sub finalize {
     $self->ve_divert_remove("/sbin/init");
 
     # finally stop the VE
-    $self->run_command("lxc-stop -n $veid -P $self->{working_dir} --rcfile $conffile --kill");
+    $self->run_command("lxc-stop -n $veid -P $self->{build_dir} --rcfile $conffile --kill");
 
     $self->run_isolated(sub {
         unlink "$rootdir/sbin/defenv";
@@ -1189,12 +1263,12 @@ sub ve_command {
     my $conffile = $self->{veconffile};
 
     if (ref($cmd) eq 'ARRAY') {
-        unshift @$cmd, 'lxc-attach', '-n', $veid, '-P', $self->{working_dir}, '--rcfile',
+        unshift @$cmd, 'lxc-attach', '-n', $veid, '-P', $self->{build_dir}, '--rcfile',
             $conffile, '--clear-env', '--', 'defenv';
         $self->run_command($cmd, $input);
     } else {
         $self->run_command(
-            "lxc-attach -n $veid -P $self->{working_dir} --rcfile $conffile --clear-env"
+            "lxc-attach -n $veid -P $self->{build_dir} --rcfile $conffile --clear-env"
                 . " -- defenv $cmd",
             $input,
         );
@@ -1216,7 +1290,7 @@ sub ve_exec {
         '-n',
         $veid,
         '-P',
-        $self->{working_dir},
+        $self->{build_dir},
         '--rcfile',
         $conffile,
         '--',
@@ -1309,7 +1383,7 @@ sub ve_destroy {
 
     my $vestat = $self->ve_status();
     if ($vestat->{running}) {
-        $self->run_command("lxc-stop -n $veid -P $self->{working_dir} --rcfile $conffile --kill");
+        $self->run_command("lxc-stop -n $veid -P $self->{build_dir} --rcfile $conffile --kill");
     }
 
     $self->__rmtree_rootfs();
@@ -1326,7 +1400,7 @@ sub ve_init {
 
     my $vestat = $self->ve_status();
     if ($vestat->{running}) {
-        $self->run_command("lxc-stop -n $veid -P $self->{working_dir} --rcfile $conffile --kill");
+        $self->run_command("lxc-stop -n $veid -P $self->{build_dir} --rcfile $conffile --kill");
     }
 
     $self->__rmtree_rootfs();
@@ -1860,7 +1934,7 @@ sub bootstrap {
 
     # use the working directory as lxcpath, the default under $HOME is often not traversable
     # for the mapped ids of unprivileged containers
-    $self->run_command("lxc-start -n $veid -P $self->{working_dir} -f $self->{veconffile}");
+    $self->run_command("lxc-start -n $veid -P $self->{build_dir} -f $self->{veconffile}");
 
     $self->logmsg("initialize ld cache\n");
     $self->ve_command("/sbin/ldconfig");
@@ -2066,10 +2140,10 @@ sub enter {
     }
 
     if (!$vestat->{running}) {
-        $self->run_command("lxc-start -n $veid -P $self->{working_dir} -f $conffile");
+        $self->run_command("lxc-start -n $veid -P $self->{build_dir} -f $conffile");
     }
 
-    system("lxc-attach -n $veid -P $self->{working_dir} --rcfile $conffile --clear-env");
+    system("lxc-attach -n $veid -P $self->{build_dir} --rcfile $conffile --clear-env");
 }
 
 sub ve_mysql_command {
@@ -2233,6 +2307,14 @@ sub cleanup {
 
     $self->ve_destroy();
     unlink ".veid";
+
+    # remove the per-target directory below a separate work directory if empty; also remove the
+    # default per-user base then, explicitly configured locations may be shared or user-managed
+    if ($self->{build_dir} ne $self->{working_dir}) {
+        rmdir $self->{build_dir};
+        rmdir dirname($self->{build_dir})
+            if dirname($self->{build_dir}) eq __default_workdir_base();
+    }
 
     rmtree $self->{cachedir} if $distclean && !$self->{config}->{cachedir};
 
