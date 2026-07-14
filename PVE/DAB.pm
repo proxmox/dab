@@ -1225,27 +1225,21 @@ sub read_installed {
 sub ve_status {
     my ($self) = @_;
 
-    my $veid = $self->{veid};
-
     my $res = { running => 0 };
 
     $res->{exist} = 1 if -d "$self->{rootfs}/usr";
 
-    my $filename = "/proc/net/unix";
-
-    # similar test is used by lcxcontainers.c: list_active_containers
-    my $fh = IO::File->new($filename, "r");
-    return $res if !$fh;
-
-    while (defined(my $line = <$fh>)) {
-        if ($line =~ m/^[a-f0-9]+:\s\S+\s\S+\s\S+\s\S+\s\S+\s\d+\s(\S+)$/) {
-            my $path = $1;
-            if ($path =~ m!^@/\S+/$veid/command$!) {
-                $res->{running} = 1;
-            }
-        }
-    }
-    close($fh);
+    # do not look for the container's abstract command socket in /proc/net/unix ourselves: lxc
+    # replaces the socket name with a hash when lxcpath and container name exceed the size limit
+    # for socket paths, so let lxc-info resolve it instead
+    my $state = eval {
+        $self->run_command(
+            ['lxc-info', '-sHn', $self->{veid}, '-P', $self->{build_dir}],
+            undef,
+            1,
+        );
+    };
+    $res->{running} = 1 if defined($state) && $state =~ m/^RUNNING$/m;
 
     return $res;
 }
@@ -1663,7 +1657,7 @@ sub __closure_single {
     push @l, split(/,/, $predep) if $predep;
     push @l, split(/,/, $dep) if $dep;
 
-DEPEND: foreach my $p (@l) {
+    DEPEND: foreach my $p (@l) {
         my @l1 = split(/\|/, $p);
         foreach my $p1 (@l1) {
             if ($p1 =~ m/^\s*(\S+).*/) {
