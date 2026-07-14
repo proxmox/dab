@@ -22,6 +22,7 @@ my $commands = {
     'task' => '<postgres|mysql|php> [--version] [--password] [--memlimit]',
     'install' => '<package or *.pkglist file> ...',
     'exec' => '<cmd> ...',
+    'cp' => '[--mode <octal>] <source> <target>',
     'enter' => '',
     'clean' => '',
     'dist-clean' => '',
@@ -219,6 +220,21 @@ eval {
 
         $dab->ve_exec(@ARGV);
 
+    } elsif ($cmd eq 'cp') {
+        my $opts = {};
+        if (!GetOptions($opts, 'mode=s')) {
+            fatal_usage();
+        }
+        die "command 'cp' expects exactly two arguments.\n" if scalar(@ARGV) != 2;
+
+        my $mode;
+        if (defined(my $m = $opts->{mode})) {
+            die "invalid mode '$m'\n" if $m !~ m/^[0-7]{3,4}$/;
+            $mode = oct($m);
+        }
+
+        $dab->copy_to_rootfs($ARGV[0], $ARGV[1], $mode);
+
     } elsif ($cmd eq 'enter') {
         die "command '$cmd' expects no arguments.\n" if scalar(@ARGV) != 0;
 
@@ -322,6 +338,14 @@ automatically unpacked.
 =item B<dab exec I<CMD> I<ARGS>>
 
 Executes command CMD inside the container.
+
+=item B<dab cp I<[--mode <octal>]> I<SOURCE> I<TARGET>>
+
+Copy a single file from the host into the appliance's root file system,
+creating missing parent directories. The target must be an absolute path
+inside the appliance, the file mode defaults to 0644. Use this instead of
+writing to the root file system directly, which is not possible for
+unprivileged builds.
 
 =item B<dab enter>
 

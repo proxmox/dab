@@ -1412,6 +1412,23 @@ sub __rmtree_rootfs {
     $self->run_isolated(sub { rmtree $self->{rootfs}; });
 }
 
+# Copy a single file from the host into the appliance root file system, creating missing parent
+# directories. Complements ve_command for appliance build scripts: direct writes into the rootfs
+# are not possible for unprivileged builds, where the contents are owned by sub-ids.
+sub copy_to_rootfs {
+    my ($self, $src, $dest, $perm) = @_;
+
+    die "destination '$dest' must be an absolute path inside the appliance\n" if $dest !~ m|^/|;
+    die "source file '$src' does not exist\n" if !-f $src;
+
+    my $rootdir = $self->{rootfs};
+
+    $self->run_isolated(sub {
+        mkpath(dirname("$rootdir$dest"));
+        copy_file($src, "$rootdir$dest", $perm // 0644);
+    });
+}
+
 # For unprivileged builds the container's mapped ids must be able to traverse the path leading
 # to the root file system, else lxc-start fails in ways that are hard to diagnose; check upfront
 # with the container's restricted view and fail with actionable guidance.
