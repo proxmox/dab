@@ -1,3 +1,9 @@
+dab (3.9.2) trixie; urgency=medium
+
+  * add basic support for building arm64 appliance templates.
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 02 Aug 2026 13:48:04 +0200
+
 dab (3.9.1) trixie; urgency=medium
 
   * fix container state detection for long appliance names: lxc hashes the
