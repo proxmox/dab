@@ -931,7 +931,6 @@ sub new {
 
     # ubuntu has too many dependencies on udev, so we cannot exclude it (instead we disable udevd)
     if (lc($suiteinfo->{origin}) eq 'ubuntu' && $suiteinfo->{systemd}) {
-        push @$incl, 'isc-dhcp-client';
         push @$excl,
             qw(libmodule-build-perl libdrm-common libdrm2 libplymouth5 plymouth plymouth-theme-ubuntu-text powermgmt-base);
         if ($suite eq 'jammy') {
