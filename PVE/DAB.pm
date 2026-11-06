@@ -146,6 +146,11 @@ my $supported_suites = {
         origin => 'ubuntu',
         modern_apt_sources => 1,
     },
+    'stonking' => {
+        ostype => "ubuntu-26.10",
+        origin => 'ubuntu',
+        modern_apt_sources => 1,
+    },
 };
 
 sub get_suite_info {
